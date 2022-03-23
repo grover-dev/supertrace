@@ -12,9 +12,9 @@ struct ray_t{
     float y;
     float z;
 
-    float vec_x;
-    float vec_y;
-    float vec_z;
+    float dx;
+    float dy;
+    float dz;
 
     float red;
     float green;
@@ -32,12 +32,12 @@ struct image_t{
 //    printf("hello world from gpu!\n");
 //}
 
-float * vector_norm(float vec_x, float vec_y, float vec_z){
-    float mag = sqrt(pow(vec_x, 2) + pow(vec_y,2)+ pow(vec_z, 2));    
+float * vector_norm(float x, float y, float z){
+    float mag = sqrt(pow(x, 2) + pow(y,2)+ pow(z, 2));    
     float * vec_n = malloc(3* sizeof(float));    
-    vec_n[0] = vec_x / mag;
-    vec_n[1] = vec_y / mag;
-    vec_n[2] = vec_z / mag;
+    vec_n[0] = x / mag;
+    vec_n[1] = y / mag;
+    vec_n[2] = z / mag;
     return vec_n;
 }
 
@@ -52,11 +52,12 @@ struct ray_t * new_ray(float x, float y, float z){
     ray->z = z;
     float * vec_n;
     vec_n = vector_norm(x, y, z); 
-    ray->vec_x = vec_n[0]; 
-    ray->vec_y = vec_n[1]; 
-    ray->vec_z = vec_n[2]; 
+    ray->dx = vec_n[0]; 
+    ray->dy = vec_n[1]; 
+    ray->dz = vec_n[2]; 
     free(vec_n);
 
+    // starting off with white light
     ray->red = 255;
     ray->green = 255;
     ray->blue = 255;
@@ -81,14 +82,23 @@ void image_write(struct image_t * image){
     (void) fclose(fp);
 }
 
-void print_vector_to_console(void * vector, int n, int m){
+void trace_step(struct ray_t ** rays){
+    struct ray_t * ray = rays[0];
+    printf("ray 0,0: (%f, %f, %f), delta: (%f, %f, %f)\n", ray->x,ray->y,ray->z, ray->dx, ray->dy, ray->dz);
+    for (int i = 0; i < BOUNDS * BOUNDS; i++){
+        ray = rays[i];
+        ray->x += ray->dx;
+        ray->y += ray->dy;
+        ray->z += ray->dz;
+        if(i == 0){
+            printf("ray 0,0: (%f, %f, %f)\n", ray->x,ray->y,ray->z);
+        }
+    }    
+}
 
 
-} 
 
-
-
-#define STEP 1.0
+#define STEPS 10
 
 
 float D = 10.0;
@@ -114,14 +124,17 @@ int main(){
         x = start_x;
         for (int i = 0; i < BOUNDS; i++){
             rays[i+j*BOUNDS] = new_ray(x, y, z); 
-            printf("(%.2f,%.2f)", rays[i+j*BOUNDS]->x, rays[i+j*BOUNDS]->y); 
+            //printf("(%.2f,%.2f)", rays[i+j*BOUNDS]->x, rays[i+j*BOUNDS]->y); 
             x += delta;
         }
         y -= delta;
-        printf("\n");
+        //printf("\n");
 
     }
     
+    for (int i = 0; i < STEPS; i ++){
+        trace_step(rays);        
+    }
     
 
     // cleaning up
