@@ -1,2 +1,26 @@
-all:
-	g++ -o rays basic_raytracer.cpp
+
+SRC = ./src
+INC = ./inc
+OBJ = ./obj
+CC = g++
+
+CFLAGS = -O3
+
+SOURCES := $(wildcard $(SRC)/*.cpp) 
+INCLUDES := $(wildcard $(INC)/*.hpp)
+OBJECTS := $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(SOURCES))
+
+$(OBJ)/%.o: $(SRC)/%.c
+	$(CC)  -c $< -o $@ $(CFLAGS)
+
+
+all: $(OBJECTS) 
+	$(CC) -o $@ $^ -I$(INC)
+
+
+.PHONY: clean
+# *~ core $(INCDIR)/*~
+clean:
+	rm -f $(OBJ)/*.o
+	rm all
+	
