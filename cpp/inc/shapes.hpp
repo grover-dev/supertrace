@@ -2,6 +2,7 @@
 #define SHAPES_HPP
 
 #include <cmath>
+#include <stdint.h>
 struct Vec3 {
   double x,y,z;
   Vec3(double x, double y, double z) : x(x), y(y), z(z) {}
@@ -44,4 +45,22 @@ struct Sphere {
     return true;
   }
 };
+
+struct Triangle {
+  Vec3 v0, v1, v2;
+  Vec3 normal;
+  uint32_t * attributes;
+  uint32_t attribute_length;
+};
+
+struct STL {
+  struct Triangle * triangles;
+  uint32_t length;
+};
+
+
+
+
+
+
 #endif

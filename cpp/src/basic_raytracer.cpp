@@ -1,5 +1,5 @@
-#include <fstream>
 
+#include <fstream>
 #include <stdlib.h>
 #include "shapes.hpp"
 
@@ -15,7 +15,7 @@ int main() {
 
   const int H = 500;
   const int W = 500;
-  const int brightness = 0.5;
+  const int brightness = 1;
 
 
   const Vec3 white(255, 255, 255);
@@ -47,7 +47,7 @@ int main() {
           const Vec3 N = spheres[z].getNormal(pi);
           const double dt = dot(L.normalize(), N.normalize());
 
-          pix_col = (red + white*dt) * 0.4;
+          pix_col = (red + white*dt) * brightness;
           clamp255(pix_col);
         }
       }
