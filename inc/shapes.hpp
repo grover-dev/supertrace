@@ -20,7 +20,10 @@ struct Vec3 {
 };
 
 
-double dot(const Vec3& a, const Vec3& b);
+double dot_vec3(const Vec3& a, const Vec3& b);
+
+struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b);
+
 
 struct STL* load_stl(const std::string& filename);
 
@@ -41,8 +44,8 @@ struct Sphere {
     const Vec3 o = ray.o;
     const Vec3 d = ray.d;
     const Vec3 oc = o - c;
-    const double b = 2 * dot(oc, d);
-    const double c = dot(oc, oc) - r*r;
+    const double b = 2 * dot_vec3(oc, d);
+    const double c = dot_vec3(oc, oc) - r*r;
     double disc = b*b - 4 * c;
     if (disc < 1e-4) return false;
     disc = sqrt(disc);

@@ -6,10 +6,21 @@
 
 const uint8_t index_mapping[12] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
 
-double dot(const Vec3& a, const Vec3& b)
+double dot_vec3(const Vec3& a, const Vec3& b)
 {
   return (a.x*b.x + a.y*b.y + a.z*b.z);
 }
+
+struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
+{
+  struct Vec3 * cross_product = (struct Vec3 *)malloc(sizeof(struct Vec3));
+  //todo: check this
+  cross_product->x = (a.y * b.z) - (b.y * a.z); 
+  cross_product->y = (a.z * b.x) - (b.z * a.x);
+  cross_product->z = (a.x * b.y) - (b.x * a.y);
+  return cross_product;
+} 
+
 
 inline bool file_exists(const std::string& filename)
 {
@@ -63,6 +74,8 @@ struct STL* load_stl(const std::string& filename)
     std::ifstream ifs(filename);
     char c;
 
+    float max_value = 0.0;
+
     uint32_t index = 0;
     uint32_t length = 0;
     uint32_t temp_4byte_reader = 0;
@@ -78,7 +91,7 @@ struct STL* load_stl(const std::string& filename)
       while(ifs.good()) {
         ifs.get(c);
         if (index >= 80 && index < 84){
-          temp_4byte_reader = 0x000000ff & c;
+          temp_4byte_reader = 0xff & c;
           length |= (temp_4byte_reader << (8 * (index - 80)));
 
           if (index == 83) {
@@ -96,9 +109,19 @@ struct STL* load_stl(const std::string& filename)
           // read value in and store it in appropriate byte 
           // stls are little endian, so bit shift here converts to big endian
           // dividing index by 3 also puts the 12 bytes into 3 uint32s
-          temp_4byte_reader = 0x000000ff & c;
+          temp_4byte_reader = 0xff & c;
           buffer[index_mapping[(index-start_index) % 12]] |= temp_4byte_reader << (8 * (((index-start_index) % 12) % 4));
           if ((index-start_index) % 12 == 11 && triangle_index < 4) {
+            if (*(float *)buffer > max_value){
+              max_value = *(float *)buffer;
+            }
+            if (*(float *)(buffer +1) > max_value){
+              max_value = *(float *)(buffer +1);
+            }
+            if (*(float *)(buffer + 2) > max_value){
+              max_value = *(float *)(buffer +2);
+            }
+
             if (triangle_index == 0) {
               map_to_vector(buffer, stl_struct->triangles[tricount].normal);
             } else if (triangle_index == 1) {
@@ -127,8 +150,9 @@ struct STL* load_stl(const std::string& filename)
       }
     }
     ifs.close();
-
+    printf("max value: %f\n", max_value);
     return stl_struct;
+
   }
 
   return nullptr; // check for this "exception"
