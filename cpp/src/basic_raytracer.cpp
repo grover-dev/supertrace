@@ -4,7 +4,6 @@
 #include <string>
 
 
-
 void clamp255(Vec3& col)
 {
   col.x = (col.x > 255) ? 255 : (col.x < 0) ? 0 : col.x;
@@ -14,11 +13,6 @@ void clamp255(Vec3& col)
 
 int main()
 {
-
-  const std::string filename = "chair.stl";
-  load_stl(filename);
-  return 0;
-
   const int H = 500;
   const int W = 500;
   const int brightness = 1;

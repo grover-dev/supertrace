@@ -24,6 +24,8 @@ double dot(const Vec3& a, const Vec3& b);
 
 struct STL* load_stl(const std::string& filename);
 
+void dump_stl(struct STL* polygon, std::string filename);
+
 struct Ray {
   Vec3 o,d;
   Ray(const Vec3& o, const Vec3& d) : o(o), d(d) {}
@@ -62,8 +64,6 @@ struct STL {
   struct Triangle * triangles;
   uint32_t length;
 };
-
-
 
 
 

@@ -1,11 +1,10 @@
 #include "shapes.hpp"
-
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string>
 #include <fstream>
 
-uint8_t bit_lookup[12] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
+const uint8_t index_mapping[12] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
 
 double dot(const Vec3& a, const Vec3& b)
 {
@@ -15,6 +14,33 @@ double dot(const Vec3& a, const Vec3& b)
 inline bool file_exists(const std::string& filename)
 {
   return(access(filename.c_str(), F_OK) != -1);
+}
+
+inline void big_to_little_endian_unint_32(uint32_t big_endian_value, uint8_t* little_endian_buffer)
+{
+  little_endian_buffer[0] = (big_endian_value) & 0xff;
+  little_endian_buffer[1] = (big_endian_value >> 8) & 0xff;
+  little_endian_buffer[2] = (big_endian_value >> 16) & 0xff;
+  little_endian_buffer[3] = (big_endian_value >> 24) & 0xff;
+}
+
+inline void big_to_little_endian_float(float big_endian_value, uint8_t* little_endian_buffer)
+{
+  uint32_t* byte_reader;
+  byte_reader = (uint32_t*) &big_endian_value;
+  big_to_little_endian_unint_32(*byte_reader, little_endian_buffer);
+}
+
+inline void write_vec3_to_file(struct Vec3* vec3, std::ofstream &output_file)
+{
+  uint8_t vec3_byte_buffer[4] = {0};
+
+  big_to_little_endian_float(vec3->x, vec3_byte_buffer);
+  output_file.write((char *) vec3_byte_buffer, 4);
+  big_to_little_endian_float(vec3->y, vec3_byte_buffer);
+  output_file.write((char *) vec3_byte_buffer, 4);
+  big_to_little_endian_float(vec3->z, vec3_byte_buffer);
+  output_file.write((char *) vec3_byte_buffer, 4);
 }
 
 void map_to_vector(uint32_t * buffer, Vec3 &vector)
@@ -34,24 +60,20 @@ void map_to_vector(uint32_t * buffer, Vec3 &vector)
 struct STL* load_stl(const std::string& filename)
 {
   if (file_exists(filename)){
-    //printf("Found %s\n", filename.c_str());
     std::ifstream ifs(filename);
     char c;
 
     uint32_t index = 0;
     uint32_t length = 0;
     uint32_t temp_4byte_reader = 0;
+    uint32_t buffer[3] = {0};
     struct STL * stl_struct;
     uint32_t tricount = 0;
 
     bool at_start = true;
-
-    uint32_t buffer[3] = {0};
-    
-    struct Triangle *tri;
     uint32_t triangle_index = 0;
-
     uint32_t start_index = 0;
+
     if(ifs.is_open()){
       while(ifs.good()) {
         ifs.get(c);
@@ -75,8 +97,7 @@ struct STL* load_stl(const std::string& filename)
           // stls are little endian, so bit shift here converts to big endian
           // dividing index by 3 also puts the 12 bytes into 3 uint32s
           temp_4byte_reader = 0x000000ff & c;
-          //printf("Inedex:    %u, Bytestring %x:      ",index, temp_4byte_reader);
-          buffer[bit_lookup[(index-start_index) % 12]] |= temp_4byte_reader << (8 * (((index-start_index) % 12) % 4));
+          buffer[index_mapping[(index-start_index) % 12]] |= temp_4byte_reader << (8 * (((index-start_index) % 12) % 4));
           if ((index-start_index) % 12 == 11 && triangle_index < 4) {
             if (triangle_index == 0) {
               map_to_vector(buffer, stl_struct->triangles[tricount].normal);
@@ -91,19 +112,13 @@ struct STL* load_stl(const std::string& filename)
             buffer[0] = 0;
             buffer[1] = 0;
             buffer[2] = 0;
-            temp_4byte_reader = 0;
             triangle_index++;
-          } else if (triangle_index == 4 || index-start_index > 48) {// the first condition should be sufficient
+          } else if (triangle_index == 4) {
             //todo: handle the length bytes, then check how long attributes are
 
             // Once all data for a single triangle is processed, move on to the next
             if (index-start_index == 49) {
-              // printf("Normal: %f, %f, %f\n", stl_struct->triangles[tricount].normal.x, stl_struct->triangles[tricount].normal.y, stl_struct->triangles[tricount].normal.z);
-              // printf("Vertex1: %f, %f, %f\n", stl_struct->triangles[tricount].v0.x, stl_struct->triangles[tricount].v0.y, stl_struct->triangles[tricount].v0.z);
-              // printf("Vertex2: %f, %f, %f\n", stl_struct->triangles[tricount].v1.x, stl_struct->triangles[tricount].v1.y, stl_struct->triangles[tricount].v1.z);
-              // printf("Vertex3: %f, %f, %f\n", stl_struct->triangles[tricount].v2.x, stl_struct->triangles[tricount].v2.y, stl_struct->triangles[tricount].v2.z);
               tricount++;
-              //printf("Processed triangle: %d\n", tricount);
               at_start = true;
             }
           }
@@ -117,4 +132,45 @@ struct STL* load_stl(const std::string& filename)
   }
 
   return nullptr; // check for this "exception"
+}
+
+// BINARY stl dumper (not meant for ascii)
+// Create a binary stl file from a C struct
+void dump_stl(struct STL* polygon, std::string filename)
+{
+  std::ofstream output_file (filename);
+  if (output_file.is_open()){
+    char c;
+    int i, j;
+    uint8_t byte_buffer[4] = {0};
+
+
+    // Write empty header: 80 Bytes
+    c = '\0';
+    for (i = 0; i < 80; i++) {
+      output_file.write(&c, 1);
+    }
+
+    // Write length
+    big_to_little_endian_unint_32(polygon->length, byte_buffer);
+    output_file.write((char *) byte_buffer, 4);
+    
+
+    // Write each triangle
+    for (i = 0; i < polygon->length; i++) {
+      // Write normal
+      write_vec3_to_file(&polygon->triangles[i].normal, output_file);
+      
+      // Write each vertex
+      write_vec3_to_file(&polygon->triangles[i].v0, output_file);
+      write_vec3_to_file(&polygon->triangles[i].v1, output_file);
+      write_vec3_to_file(&polygon->triangles[i].v2, output_file);
+
+      // Write attributes as empty
+      // todo: add attribute support
+      for (j = 0; j < 2; j++) {
+        output_file.write(&c, 1);
+      }
+    }
+  }
 }
