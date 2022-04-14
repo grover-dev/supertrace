@@ -75,6 +75,7 @@ struct STL* load_stl(const std::string& filename)
     char c;
 
     float max_value = 0.0;
+    float min_value = 99999.99;
 
     uint32_t index = 0;
     uint32_t length = 0;
@@ -122,6 +123,16 @@ struct STL* load_stl(const std::string& filename)
               max_value = *(float *)(buffer +2);
             }
 
+            if (*(float *)buffer < min_value){
+              min_value = *(float *)buffer;
+            }
+            if (*(float *)(buffer +1) < min_value){
+              min_value = *(float *)(buffer +1);
+            }
+            if (*(float *)(buffer + 2) < min_value){
+              min_value = *(float *)(buffer +2);
+            }
+
             if (triangle_index == 0) {
               map_to_vector(buffer, stl_struct->triangles[tricount].normal);
             } else if (triangle_index == 1) {
@@ -150,9 +161,9 @@ struct STL* load_stl(const std::string& filename)
       }
     }
     ifs.close();
-    printf("max value: %f\n", max_value);
-    return stl_struct;
 
+    printf("max value: %f and min value: %f\n", max_value, min_value);
+    return stl_struct;
   }
 
   return nullptr; // check for this "exception"
