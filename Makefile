@@ -4,7 +4,7 @@ INC = ./inc
 OBJ = ./obj
 CC = g++
 
-CFLAGS = -O3
+CFLAGS = -g
 
 SOURCES := $(wildcard $(SRC)/*.cpp) 
 INCLUDES := $(wildcard $(INC)/*.hpp)
@@ -14,7 +14,7 @@ $(OBJ)/%.o: $(SRC)/%.c
 	$(CC)  -c $< -o $@ $(CFLAGS)
 
 
-all: $(OBJECTS) 
+raytracer: $(OBJECTS) 
 	$(CC) -o $@ $^ -I$(INC)
 
 
@@ -22,5 +22,5 @@ all: $(OBJECTS)
 # *~ core $(INCDIR)/*~
 clean:
 	rm -f $(OBJ)/*.o
-	rm all
+	rm raytracer
 	
