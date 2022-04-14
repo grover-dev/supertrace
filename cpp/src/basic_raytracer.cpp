@@ -1,17 +1,23 @@
-
 #include <fstream>
 #include <stdlib.h>
 #include "shapes.hpp"
+#include <string>
 
 
 
-void clamp255(Vec3& col) {
+void clamp255(Vec3& col)
+{
   col.x = (col.x > 255) ? 255 : (col.x < 0) ? 0 : col.x;
   col.y = (col.y > 255) ? 255 : (col.y < 0) ? 0 : col.y;
   col.z = (col.z > 255) ? 255 : (col.z < 0) ? 0 : col.z;
 }
 
-int main() {
+int main()
+{
+
+  const std::string filename = "chair.stl";
+  load_stl(filename);
+  return 0;
 
   const int H = 500;
   const int W = 500;
