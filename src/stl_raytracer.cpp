@@ -8,6 +8,7 @@
 // {
 
 
+
 //   const Vec3 white(255, 255, 255);
 //   const Vec3 black(0, 0, 0);
 //   const Vec3 red(255, 0, 0);
@@ -99,9 +100,9 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
 }
 
 
-#define H 500
-#define W 500
-#define BRIGHTNESS 1
+#define H 100
+#define W 100
+#define BRIGHTNESS 0.5
 
 void raytrace(struct STL * stl){
   // creating light source point

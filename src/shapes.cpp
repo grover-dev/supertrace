@@ -88,6 +88,9 @@ struct STL* load_stl(const std::string& filename)
     uint32_t triangle_index = 0;
     uint32_t start_index = 0;
 
+    Vec3 zeroing_offset = Vec3(0,0,0);
+
+
     if(ifs.is_open()){
       while(ifs.good()) {
         ifs.get(c);
@@ -113,6 +116,17 @@ struct STL* load_stl(const std::string& filename)
           temp_4byte_reader = 0xff & c;
           buffer[index_mapping[(index-start_index) % 12]] |= temp_4byte_reader << (8 * (((index-start_index) % 12) % 4));
           if ((index-start_index) % 12 == 11 && triangle_index < 4) {
+            
+            if (*(float *)buffer < zeroing_offset.x){
+              zeroing_offset.x = *(float *)buffer;
+            }
+            if (*(float *)(buffer +1) < zeroing_offset.y){
+              zeroing_offset.y = *(float *)(buffer +1);
+            }
+            if (*(float *)(buffer + 2) < zeroing_offset.z){
+              zeroing_offset.z = *(float *)(buffer +2);
+            }
+
             if (*(float *)buffer > max_value){
               max_value = *(float *)buffer;
             }
@@ -161,6 +175,15 @@ struct STL* load_stl(const std::string& filename)
       }
     }
     ifs.close();
+
+    if (zeroing_offset.x != 0 || zeroing_offset.y != 0 || zeroing_offset.z != 0){
+      for (int i = 0; i < stl_struct->length; i++){
+        stl_struct->triangles[i].normal = stl_struct->triangles[i].normal - zeroing_offset;
+        stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 - zeroing_offset;
+        stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 - zeroing_offset;
+        stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 - zeroing_offset;
+      }
+    }
 
     printf("max value: %f and min value: %f\n", max_value, min_value);
     return stl_struct;
