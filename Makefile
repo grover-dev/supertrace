@@ -15,7 +15,7 @@ $(OBJ)/%.o: $(SRC)/%.c
 
 
 raytracer: $(OBJECTS) 
-	$(CC) -o $@ $^ -I$(INC)
+	$(CC) -o $@ $^ -I$(INC) $(CFLAGS)
 
 
 .PHONY: clean

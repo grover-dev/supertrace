@@ -3,6 +3,7 @@
 #include "shapes.hpp"
 #include <string>
 #include <iostream>
+#include <cmath>
 
 // void write_to_file()
 // {
@@ -62,83 +63,99 @@ void clamp255(Vec3& col)
 
 bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
   // error bound for 0
-  const float epsilon = 0.000001;
+  const float epsilon = 0.0000001;
 
-  struct Vec3 c_a_vector = tri->v2 - tri->v0;
-  struct Vec3 b_a_vector = tri->v1 - tri->v0;
+  struct Vec3 c_a_vector = tri->v2 - tri->v0; //edge2
+  struct Vec3 b_a_vector = tri->v1 - tri->v0; //edge1 
 
-  struct Vec3 * d_cross_c_a = cross_vec3(ray->d, c_a_vector);
+  struct Vec3 * d_cross_c_a = cross_vec3(ray->d, c_a_vector); // h = ray cross edge2
 
   // first calculating determinant, 
   //  if its ~0 then the ray is parallel to the triangle
   //  if it is <0, then we are hitting the back of the triangle (counting as not intersecting for now)
   //  this will need to be adjusted in the future (especially with refraction) (i.e. use absolute value of det)
   // can therefore ignore it  
-  double det = dot_vec3(*d_cross_c_a, b_a_vector); 
-  if (det < epsilon){
+  double det = dot_vec3(*d_cross_c_a, b_a_vector); // a = (ray cross edge2) => h dot edge1
+  if (det < epsilon && det > -epsilon){
     return false;
   }
-  double inv_det = 1.0 / det;
+  double inv_det = 1.0 / det; // f = 1/a
 
-  struct Vec3 o_a_vector = ray->o - tri->v0;
-  struct Vec3 * o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector);
+  struct Vec3 o_a_vector = ray->o - tri->v0; // s = ray origin - vertex0
 
   // start calculating barycentric coord vectors
-  double u = dot_vec3(*d_cross_c_a, o_a_vector) * inv_det;
+  double u = dot_vec3(o_a_vector, *d_cross_c_a) * inv_det; // u = s dot h * f
   // since the vectors are normalized, anything < 0 or > 1 means that the intersection
   // is not in the bounds of the triangle 
-  if (u < 0 || u > 1){
+  if (u < 0.0 || u > 1.0){
     return false;
   }
+  struct Vec3 * o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector); // q = s cross edge1
   double v = dot_vec3(*o_a_cross_b_a, ray->d) * inv_det;
-  if (v < 0 || v > 1){
+  if (v < 0.0 || (v+u) > 1.0){
     return false;
   }
-  double t = dot_vec3(*o_a_cross_b_a, c_a_vector);
-  *intersection_point = ray->o + (ray->d * t);
-  return true;
+  double t = dot_vec3(*o_a_cross_b_a, c_a_vector) * inv_det;
+  if (t > epsilon){
+    *intersection_point = ray->o + (ray->d * t);
+    return true;
+  }
+  return false;
 }
 
 
-#define H 100
-#define W 100
+#define H 500 // pixel height
+#define W 500 // pixel width
 #define BRIGHTNESS 0.5
 
-void raytrace(struct STL * stl){
-  // creating light source point
-  const Sphere light(Vec3(W, H, 0), 1);
+#define ZOOM 1
 
-  std::ofstream out("out.ppm");
+void raytrace(struct STL * stl, const std::string& filename, float light_angle){
+  // creating light source point
+  const Sphere light(Vec3(0, H, 0), 1);
+
+  std::ofstream out(filename);
   out << "P3\n" << W << ' ' << H << ' ' << "255\n";
 
-  const Vec3 white(255, 255, 255);
+  const Vec3 white(255, 255, 255); // the red will likely need to substituted with surface parameters
   const Vec3 black(0, 0, 0);
-  const Vec3 red(255, 0, 0);
+  const Vec3 red(0, 255, 0);
 
   int length = stl->length;
   Vec3 pix_col(black);
+  Vec3 * pi = (Vec3 *)malloc(sizeof(Vec3));
+      
 
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       pix_col = black;
 
-      Ray ray(Vec3(x,y,0), Vec3(0,0,1));
+      Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(sin(light_angle),0,cos(light_angle)));
       for (int i = 0; i < length; i++){
-        Vec3 * pi = (Vec3 *)malloc(sizeof(Vec3));
         if(ray_triangle_intersect(&ray, &(stl->triangles[i]), pi)){
             const Vec3 L = light.c - *pi;
-            const Vec3 N = stl->triangles->normal;
+            const Vec3 N = stl->triangles[i].normal;
             const double dt = dot_vec3(L.normalize(), N.normalize());
             pix_col = (red + white*dt) * BRIGHTNESS;
             clamp255(pix_col); 
         }
-        free(pi);
       }
+      // debugging highlighting origin with red square
+      if (x <= H/50 && y <= W/50 ){
+      out << (int)255 << ' '
+          << (int)0 << ' '
+          << (int)0 << '\n';
+
+      } else {
+
       out << (int)pix_col.x << ' '
           << (int)pix_col.y << ' '
           << (int)pix_col.z << '\n';
+      }
     }
   }
+  out.close();
+  free(pi);
 }
 
 
@@ -147,12 +164,17 @@ int main()
 {
   //todo: multiple file loading?
   struct STL * stl;
-  std::string filename = "pyramid.stl";
+  std::string filename = "big-sphere.stl";
   stl = load_stl(filename);
   std::cout<<"Successfully loaded " <<  filename << "%s\n";
   printf("Number of triangles: %i\n", stl->length);
 
-  raytrace(stl);
+  std::string output_filename = "output/out.ppm";
+  for (int i = 0; i < 20; i++){
+    std::string appended_info = std::to_string(i);
+    raytrace(stl, output_filename.insert(10,appended_info), M_PI/(float)i);
+    output_filename = "output/out.ppm";
+  }
 
   
 }

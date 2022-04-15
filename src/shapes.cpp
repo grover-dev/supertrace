@@ -177,11 +177,16 @@ struct STL* load_stl(const std::string& filename)
     ifs.close();
 
     if (zeroing_offset.x != 0 || zeroing_offset.y != 0 || zeroing_offset.z != 0){
+      Vec3 offset = Vec3(250,250,250);
       for (int i = 0; i < stl_struct->length; i++){
-        stl_struct->triangles[i].normal = stl_struct->triangles[i].normal - zeroing_offset;
-        stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 - zeroing_offset;
-        stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 - zeroing_offset;
-        stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 - zeroing_offset;
+        // stl_struct->triangles[i].normal = stl_struct->triangles[i].normal - zeroing_offset;
+        // stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 - zeroing_offset;
+        // stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 - zeroing_offset;
+        // stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 - zeroing_offset;
+        stl_struct->triangles[i].normal = stl_struct->triangles[i].normal + offset;
+        stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 + offset;
+        stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 + offset;
+        stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 + offset;
       }
     }
 
