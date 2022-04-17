@@ -5,6 +5,11 @@
 #include <iostream>
 #include <cmath>
 
+// Update both or find a macro trick
+#define FILE_LIST {"big-sphere.stl"}
+#define NUMBER_OF_FILES 1
+
+
 // void write_to_file()
 // {
 
@@ -110,7 +115,7 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
 
 #define ZOOM 1
 
-void raytrace(struct STL * stl, const std::string& filename, float light_angle){
+void raytrace(struct STL *stl[], const int number_of_stls, const std::string& filename, float light_angle){
   // creating light source point
   const Sphere light(Vec3(0, H, 0), 1);
 
@@ -121,36 +126,39 @@ void raytrace(struct STL * stl, const std::string& filename, float light_angle){
   const Vec3 black(0, 0, 0);
   const Vec3 red(0, 255, 0);
 
-  int length = stl->length;
+  int length;
   Vec3 pix_col(black);
   Vec3 * pi = (Vec3 *)malloc(sizeof(Vec3));
       
 
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
-      pix_col = black;
+      for (int z = 0; z < number_of_stls; z++) {
+        length = stl[z]->length;
+        pix_col = black;
 
-      Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(sin(light_angle),0,cos(light_angle)));
-      for (int i = 0; i < length; i++){
-        if(ray_triangle_intersect(&ray, &(stl->triangles[i]), pi)){
-            const Vec3 L = light.c - *pi;
-            const Vec3 N = stl->triangles[i].normal;
-            const double dt = dot_vec3(L.normalize(), N.normalize());
-            pix_col = (red + white*dt) * BRIGHTNESS;
-            clamp255(pix_col); 
+        Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(sin(light_angle),0,cos(light_angle)));
+        for (int i = 0; i < length; i++){
+          if(ray_triangle_intersect(&ray, &(stl[z]->triangles[i]), pi)){
+              const Vec3 L = light.c - *pi;
+              const Vec3 N = stl[z]->triangles[i].normal;
+              const double dt = dot_vec3(L.normalize(), N.normalize());
+              pix_col = (red + white*dt) * BRIGHTNESS;
+              clamp255(pix_col); 
+          }
         }
-      }
-      // debugging highlighting origin with red square
-      if (x <= H/50 && y <= W/50 ){
-      out << (int)255 << ' '
-          << (int)0 << ' '
-          << (int)0 << '\n';
+        // debugging highlighting origin with red square
+        if (x <= H/50 && y <= W/50 ){
+        out << (int)255 << ' '
+            << (int)0 << ' '
+            << (int)0 << '\n';
 
-      } else {
+        } else {
 
-      out << (int)pix_col.x << ' '
-          << (int)pix_col.y << ' '
-          << (int)pix_col.z << '\n';
+        out << (int)pix_col.x << ' '
+            << (int)pix_col.y << ' '
+            << (int)pix_col.z << '\n';
+        }
       }
     }
   }
@@ -162,19 +170,20 @@ void raytrace(struct STL * stl, const std::string& filename, float light_angle){
 // using Möller-Trumbore algorithm for raytracing w/ triangles 
 int main() 
 {
-  //todo: multiple file loading?
-  struct STL * stl;
-  std::string filename = "big-sphere.stl";
-  stl = load_stl(filename);
-  std::cout<<"Successfully loaded " <<  filename << "%s\n";
-  printf("Number of triangles: %i\n", stl->length);
+  struct STL *stl[NUMBER_OF_FILES];
+  struct STL *objects[NUMBER_OF_FILES];
+  const std::string filenames[NUMBER_OF_FILES] = FILE_LIST;
+
+  for (int i = 0; i < NUMBER_OF_FILES; i++) {
+    stl[i] = load_stl(filenames[i]);
+    std::cout << "Successfully loaded " <<  filenames[i] << "%s\n";
+    printf("Number of triangles: %i\n", stl[i]->length);
+  }
 
   std::string output_filename = "output/out.ppm";
   for (int i = 0; i < 20; i++){
     std::string appended_info = std::to_string(i);
-    raytrace(stl, output_filename.insert(10,appended_info), M_PI/(float)i);
+    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), M_PI/(float)i);
     output_filename = "output/out.ppm";
   }
-
-  
 }
