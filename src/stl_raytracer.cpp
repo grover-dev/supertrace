@@ -7,7 +7,7 @@
 #include <time.h>
 
 // Update both or find a macro trick
-#define FILE_LIST {"big-sphere.stl"}
+#define FILE_LIST {"sphere.stl"}
 #define NUMBER_OF_FILES 1
 #define DEBUG_MODE true
 

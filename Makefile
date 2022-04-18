@@ -4,7 +4,7 @@ INC = ./inc
 OBJ = ./obj
 CC = g++
 
-CFLAGS = -g
+CFLAGS = -O3
 
 SOURCES := $(wildcard $(SRC)/*.cpp) 
 INCLUDES := $(wildcard $(INC)/*.hpp)
