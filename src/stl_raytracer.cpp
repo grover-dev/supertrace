@@ -136,7 +136,7 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
-  double light_source_z = 0.0;
+  double light_source_z = 500.0;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   std::ofstream out(filename);
@@ -149,7 +149,6 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
   Vec3 pix_col(black);
   Vec3 *pi = (Vec3 *)malloc(sizeof(Vec3));
   
-  // printf("light_angle: %f\n", light_angle);
 
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {

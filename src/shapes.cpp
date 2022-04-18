@@ -217,11 +217,6 @@ struct STL* load_stl(const std::string& filename, struct Parameters params)
 
       Vec3 offset = Vec3(params.c_o,params.c_o,params.c_o);
       for (int i = 0; i < stl_struct->length; i++){
-        // stl_struct->triangles[i].normal = stl_struct->triangles[i].normal - zeroing_offset;
-        // stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 - zeroing_offset;
-        // stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 - zeroing_offset;
-        // stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 - zeroing_offset;
-        stl_struct->triangles[i].normal = stl_struct->triangles[i].normal + offset;
         stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 + offset;
         stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 + offset;
         stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 + offset;
