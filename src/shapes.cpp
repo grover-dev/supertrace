@@ -79,9 +79,11 @@ struct Vec3 get_model_center(STL * stl){
   for (int i = 0; i < stl->length; i++){
     struct Vec3 edge_0 = stl->triangles[i].v1 - stl->triangles[i].v0;
     struct Vec3 edge_1 = stl->triangles[i].v2 - stl->triangles[i].v0;
-    double area = 0.5 * magnitude_vec3(cross_vec3(edge_0, edge_1));
+    struct Vec3 *cross_prod = cross_vec3(edge_0, edge_1);
+    double area = 0.5 * magnitude_vec3(cross_prod);
     total_weighted_area = total_weighted_area + (get_triangle_center(stl->triangles[i]) * area); 
     total_area+=area;
+    free(cross_prod);
   }
   return total_weighted_area/total_area;
 }
@@ -284,6 +286,8 @@ void dump_stl(struct STL* polygon, std::string filename)
       for (j = 0; j < 2; j++) {
         output_file.write(&c, 1);
       }
+
+      output_file.close();
     }
   }
 }

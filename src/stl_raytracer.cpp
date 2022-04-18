@@ -4,10 +4,18 @@
 #include <string>
 #include <iostream>
 #include <cmath>
+#include <time.h>
 
 // Update both or find a macro trick
 #define FILE_LIST {"sphere.stl"}
 #define NUMBER_OF_FILES 1
+#define DEBUG_MODE true
+
+double CLOCK() {
+        struct timespec t;
+        clock_gettime(CLOCK_MONOTONIC,  &t);
+        return (t.tv_sec * 1000)+(t.tv_nsec*1e-6);
+}
 
 
 // void write_to_file()
@@ -73,7 +81,7 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
   struct Vec3 c_a_vector = tri->v2 - tri->v0; //edge2
   struct Vec3 b_a_vector = tri->v1 - tri->v0; //edge1 
 
-  struct Vec3 * d_cross_c_a = cross_vec3(ray->d, c_a_vector); // h = ray cross edge2
+  struct Vec3 *d_cross_c_a = cross_vec3(ray->d, c_a_vector); // h = ray cross edge2
 
   // first calculating determinant, 
   //  if its ~0 then the ray is parallel to the triangle
@@ -98,13 +106,19 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
   struct Vec3 * o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector); // q = s cross edge1
   double v = dot_vec3(*o_a_cross_b_a, ray->d) * inv_det;
   if (v < 0.0 || (v+u) > 1.0){
+    free(o_a_cross_b_a);
+    free(d_cross_c_a);
     return false;
   }
   double t = dot_vec3(*o_a_cross_b_a, c_a_vector) * inv_det;
   if (t > epsilon){
     *intersection_point = ray->o + (ray->d * t);
+    free(o_a_cross_b_a);
+    free(d_cross_c_a);
     return true;
   }
+  free(o_a_cross_b_a);
+  free(d_cross_c_a);
   return false;
 }
 
@@ -129,20 +143,18 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
   const Vec3 black(0, 0, 0);
   const Vec3 red(0, 255, 0);
 
-  int length;
   Vec3 pix_col(black);
-  Vec3 * pi = (Vec3 *)malloc(sizeof(Vec3));
+  Vec3 *pi = (Vec3 *)malloc(sizeof(Vec3));
   
   // printf("light_angle: %f\n", light_angle);
 
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       for (int z = 0; z < number_of_stls; z++) {
-        length = stl[z]->length;
         pix_col = black;
 
         Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(0,0,1));
-        for (int i = 0; i < length; i++){
+        for (int i = 0; i < stl[z]->length; i++){
           if(ray_triangle_intersect(&ray, &(stl[z]->triangles[i]), pi)){
               const Vec3 L = light.c - *pi;
               const Vec3 N = stl[z]->triangles[i].normal;
@@ -164,9 +176,9 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
         } else if (x == 0){
           pix_col = Vec3(0,0,255);
         }
-        out << pix_col.x << ' '
-            << pix_col.y << ' '
-            << pix_col.z << '\n';
+        out << (int) pix_col.x << ' '
+            << (int) pix_col.y << ' '
+            << (int) pix_col.z << '\n';
         
       }
     }
@@ -191,6 +203,8 @@ int main()
   struct STL *stl[NUMBER_OF_FILES];
   struct STL *objects[NUMBER_OF_FILES];
   const std::string filenames[NUMBER_OF_FILES] = FILE_LIST;
+
+  double start_time, finish_time, total_time, current_time, increment_point;
   
   struct Parameters params = Parameters(SCALING, OFFSET, H, W);
 
@@ -202,9 +216,21 @@ int main()
 
   std::string output_filename = "output/out.ppm";
   const int start = 0;
+  start_time = CLOCK();
+  increment_point = start_time;
   for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i);
     raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), i* M_PI/(float)STEPS);
     output_filename = "output/out.ppm";
+    if (DEBUG_MODE) {
+      current_time = CLOCK();
+      printf("Frame %d processed in %f ms\n", i, current_time-increment_point);
+      increment_point = current_time;
+    }
+  }
+  if (DEBUG_MODE) {
+    finish_time = CLOCK();
+    total_time = finish_time-start_time;
+    printf("The total time to raytrace was: %f ms\n", total_time);
   }
 }
