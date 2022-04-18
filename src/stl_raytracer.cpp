@@ -7,7 +7,7 @@
 #include <time.h>
 
 // Update both or find a macro trick
-#define FILE_LIST {"sphere.stl"}
+#define FILE_LIST {"big-sphere.stl"}
 #define NUMBER_OF_FILES 1
 #define DEBUG_MODE true
 
@@ -65,11 +65,11 @@ double CLOCK() {
 // }
 
 
-void clamp255(Vec3& col)
+void clamp_pixels(Vec3& col)
 {
-  col.x = (col.x > 255) ? 255 : (col.x < 0) ? 0 : col.x;
-  col.y = (col.y > 255) ? 255 : (col.y < 0) ? 0 : col.y;
-  col.z = (col.z > 255) ? 255 : (col.z < 0) ? 0 : col.z;
+  col.x = (col.x > 1023) ? 1023 : (col.x < 0) ? 0 : col.x;
+  col.y = (col.y > 1023) ? 1023 : (col.y < 0) ? 0 : col.y;
+  col.z = (col.z > 1023) ? 1023 : (col.z < 0) ? 0 : col.z;
 }
 
 
@@ -134,14 +134,17 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
 
 void raytrace(struct STL *stl[], const int number_of_stls, const std::string& filename, float light_angle){
   // creating light source point
-  const Sphere light(Vec3(W/2+W*cos(light_angle)/2,H/2+H*sin(light_angle)/2, 0), 1);
+  double light_source_x = W/2+W*cos(light_angle)/2;
+  double light_source_y = H/2+H*sin(light_angle)/2;
+  double light_source_z = 0.0;
+  const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   std::ofstream out(filename);
-  out << "P3\n" << W << ' ' << H << ' ' << "255\n";
+  out << "P3\n" << W << ' ' << H << ' ' << "1023\n";
 
-  const Vec3 white(255, 255, 255); // the red will likely need to substituted with surface parameters
+  const Vec3 white(1023, 1023, 1023); // the red will likely need to substituted with surface parameters
   const Vec3 black(0, 0, 0);
-  const Vec3 red(0, 255, 0);
+  const Vec3 red(1023, 0, 0);
 
   Vec3 pix_col(black);
   Vec3 *pi = (Vec3 *)malloc(sizeof(Vec3));
@@ -160,21 +163,21 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
               const Vec3 N = stl[z]->triangles[i].normal;
               const double dt = dot_vec3(L.normalize(), N.normalize());
               pix_col = (red + white*dt) * BRIGHTNESS;
-              clamp255(pix_col); 
+              clamp_pixels(pix_col); 
           }
         }
         // debugging highlighting origin with red square
         if (x <= 10 && y <= 10 ){
-          pix_col = Vec3(255,0,0);
-        } else if (fabs(x - W*cos(light_angle)) <= 1.1 && fabs(y- H*sin(light_angle) <= 1)){
+          pix_col = Vec3(1023,0,0);
+        } else if (fabs(x - light_source_x) <= 1 && fabs(y-light_source_y ) <= 1){
           pix_col = white;
         }
         // paint y axis green
         if (y == 0){
-          pix_col = Vec3(0,255,0);
+          pix_col = Vec3(0,1023,0);
         // paint x axis blue
         } else if (x == 0){
-          pix_col = Vec3(0,0,255);
+          pix_col = Vec3(0,0,1023);
         }
         out << (int) pix_col.x << ' '
             << (int) pix_col.y << ' '
