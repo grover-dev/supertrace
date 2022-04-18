@@ -13,59 +13,12 @@ double CLOCK() {
         return (t.tv_sec * 1000)+(t.tv_nsec*1e-6);
 }
 
-
-// void write_to_file()
-// {
-
-
-
-//   const Vec3 white(255, 255, 255);
-//   const Vec3 black(0, 0, 0);
-//   const Vec3 red(255, 0, 0);
-
-//   Sphere *spheres = (Sphere*) malloc(2 * sizeof(Sphere));
-//   spheres[0] = Sphere(Vec3(W*0.5, H*0.5, 50), 50);
-//   spheres[1] = Sphere(Vec3(W*0.8, H*0.8, 50), 30);
-  
-
-//   std::ofstream out("out2.ppm");
-//   out << "P3\n" << W << ' ' << H << ' ' << "255\n";
-
-//   double t;
-//   Vec3 pix_col(black);
-
-//   for (int y = 0; y < H; ++y) {
-//     for (int x = 0; x < W; ++x) {
-//       pix_col = black;
-
-//       const Ray ray(Vec3(x,y,0), Vec3(0,0,1));
-
-//       for (int z = 0; z < 2; z++) {
-//         if (spheres[z].intersect(ray, t)) {
-//           const Vec3 pi = ray.o + ray.d*t;
-//           const Vec3 L = light.c - pi;
-//           const Vec3 N = spheres[z].getNormal(pi);
-//           const double dt = dot(L.normalize(), N.normalize());
-
-//           pix_col = (red + white*dt) * brightness;
-//           clamp255(pix_col);
-//         }
-//       }
-
-//       out << (int)pix_col.x << ' '
-//           << (int)pix_col.y << ' '
-//           << (int)pix_col.z << '\n';
-//     }
-//   }
-//   free(spheres);
-// }
-
-
+#define MAX_PIXEL 1023
 void clamp_pixels(Vec3& col)
 {
-  col.x = (col.x > 1023) ? 1023 : (col.x < 0) ? 0 : col.x;
-  col.y = (col.y > 1023) ? 1023 : (col.y < 0) ? 0 : col.y;
-  col.z = (col.z > 1023) ? 1023 : (col.z < 0) ? 0 : col.z;
+  col.x = (col.x > MAX_PIXEL) ? MAX_PIXEL : (col.x < 0) ? 0 : col.x;
+  col.y = (col.y > MAX_PIXEL) ? MAX_PIXEL : (col.y < 0) ? 0 : col.y;
+  col.z = (col.z > MAX_PIXEL) ? MAX_PIXEL : (col.z < 0) ? 0 : col.z;
 }
 
 
@@ -86,6 +39,7 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
   // can therefore ignore it  
   double det = dot_vec3(*d_cross_c_a, b_a_vector); // a = (ray cross edge2) => h dot edge1
   if (det < epsilon && det > -epsilon){
+    free(d_cross_c_a);
     return false;
   }
   double inv_det = 1.0 / det; // f = 1/a
@@ -119,20 +73,23 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
 }
 
 // Update both or find a macro trick
-#define FILE_LIST {"sphere.stl"}//,"sphere.stl"}
+#define FILE_LIST {"pyramid.stl"}//,"sphere.stl"}
 #define NUMBER_OF_FILES 1
-struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,0)};//, Vec3(100,0,0)};
+struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
 #define DEBUG_MODE true
 
 #define H 500 // pixel height
 #define W 500 // pixel width
-#define BRIGHTNESS 0.4
+#define BRIGHTNESS 0.5
 #define SCALING 5.0
-#define OFFSET 10.0
+#define OFFSET 0.0
 #define ZOOM 1
 
-#define STEPS 10
+#define STEPS 100
 
+// generate a raytraced frame
+// requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
+// and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
 void raytrace(struct STL *stl[], const int number_of_stls, const std::string& filename, float light_angle, float object_angle){
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
@@ -141,32 +98,35 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   std::ofstream out(filename);
-  out << "P3\n" << W << ' ' << H << ' ' << "1023\n";
+  out << "P3\n" << W << ' ' << H << ' ' << MAX_PIXEL<<"\n";
 
-  const Vec3 white(1023, 1023, 1023); // the red will likely need to substituted with surface parameters
+  const Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
   const Vec3 black(0, 0, 0);
-  const Vec3 red(1023, 0, 0);
+  const Vec3 red(MAX_PIXEL, 0, 0);
 
   Vec3 pix_col(black);
   Vec3 *pi = (Vec3 *)malloc(sizeof(Vec3));
   
   Vec3 pix_col_tmp = black;
 
-  for (int y = 0; y < H; ++y) {
-    for (int x = 0; x < W; ++x) {
+  rotate_stl(ROT_Z, stl[0], object_angle);
+  rotate_stl(ROT_X, stl[0], object_angle);
+  rotate_stl(ROT_Y, stl[0], -object_angle);
+  
+  for (int j = 0; j < H; ++j) {
+    for (int i = 0; i < W; ++i) {
       for (int z = 0; z < number_of_stls; z++) {
-        rotate_stl(ROT_X, stl[z], object_angle);
         pix_col = black;
-        Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(0,0,1));
-        for (int i = 0; i < stl[z]->length; i++){
+        Ray ray(Vec3(i/ZOOM,j/ZOOM,0), Vec3(0,0,1));
+        for (int ind = 0; ind < stl[z]->length; ind++){
 
-          if(ray_triangle_intersect(&ray, &(stl[z]->triangles[i]), pi)){
+          if(ray_triangle_intersect(&ray, &(stl[z]->triangles[ind]), pi)){
               const Vec3 L = light.c - *pi;
-              const Vec3 N = stl[z]->triangles[i].normal;
+              const Vec3 N = stl[z]->triangles[ind].normal;
               const double dt = dot_vec3(L.normalize(), N.normalize());
               pix_col = (red + white*dt) * BRIGHTNESS;
               clamp_pixels(pix_col); 
-              if(i > 0){
+              if(ind > 0){
                 pix_col = pix_col_tmp.max(pix_col);
               }
               pix_col_tmp = pix_col;
@@ -174,17 +134,17 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
         }
         pix_col_tmp = black;
         // debugging highlighting origin with red square
-        if (x <= 10 && y <= 10 ){
-          pix_col = Vec3(1023,0,0);
-        } else if (fabs(x - light_source_x) <= 1 && fabs(y-light_source_y ) <= 1){
+        if (i <= 10 && j <= 10 ){
+          pix_col = Vec3(MAX_PIXEL,0,0);
+        } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
           pix_col = white;
         }
         // paint y axis green
-        if (y == 0){
-          pix_col = Vec3(0,1023,0);
+        if (j == 0){
+          pix_col = Vec3(0,MAX_PIXEL,0);
         // paint x axis blue
-        } else if (x == 0){
-          pix_col = Vec3(0,0,1023);
+        } else if (i == 0){
+          pix_col = Vec3(0,0,MAX_PIXEL);
         }
         out << (int) pix_col.x << ' '
             << (int) pix_col.y << ' '
@@ -229,8 +189,8 @@ int main()
   start_time = CLOCK();
   increment_point = start_time;
   for (int i = start; i < STEPS+start; i++){
-    std::string appended_info = std::to_string(i);
-    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), M_2_PI,i* M_PI/(float)STEPS);
+    std::string appended_info = std::to_string(i+1); //
+    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
     output_filename = "output/out.ppm";
     if (DEBUG_MODE) {
       current_time = CLOCK();
