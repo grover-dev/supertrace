@@ -6,10 +6,6 @@
 #include <cmath>
 #include <time.h>
 
-// Update both or find a macro trick
-#define FILE_LIST {"sphere.stl"}
-#define NUMBER_OF_FILES 1
-#define DEBUG_MODE true
 
 double CLOCK() {
         struct timespec t;
@@ -122,6 +118,11 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
   return false;
 }
 
+// Update both or find a macro trick
+#define FILE_LIST {"sphere.stl"}//,"sphere.stl"}
+#define NUMBER_OF_FILES 1
+struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,0)};//, Vec3(100,0,0)};
+#define DEBUG_MODE true
 
 #define H 500 // pixel height
 #define W 500 // pixel width
@@ -132,7 +133,7 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
 
 #define STEPS 10
 
-void raytrace(struct STL *stl[], const int number_of_stls, const std::string& filename, float light_angle){
+void raytrace(struct STL *stl[], const int number_of_stls, const std::string& filename, float light_angle, float object_angle){
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
@@ -149,22 +150,29 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
   Vec3 pix_col(black);
   Vec3 *pi = (Vec3 *)malloc(sizeof(Vec3));
   
+  Vec3 pix_col_tmp = black;
 
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       for (int z = 0; z < number_of_stls; z++) {
+        rotate_stl(ROT_X, stl[z], object_angle);
         pix_col = black;
-
         Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(0,0,1));
         for (int i = 0; i < stl[z]->length; i++){
+
           if(ray_triangle_intersect(&ray, &(stl[z]->triangles[i]), pi)){
               const Vec3 L = light.c - *pi;
               const Vec3 N = stl[z]->triangles[i].normal;
               const double dt = dot_vec3(L.normalize(), N.normalize());
               pix_col = (red + white*dt) * BRIGHTNESS;
               clamp_pixels(pix_col); 
+              if(i > 0){
+                pix_col = pix_col_tmp.max(pix_col);
+              }
+              pix_col_tmp = pix_col;
           }
         }
+        pix_col_tmp = black;
         // debugging highlighting origin with red square
         if (x <= 10 && y <= 10 ){
           pix_col = Vec3(1023,0,0);
@@ -211,7 +219,7 @@ int main()
   struct Parameters params = Parameters(SCALING, OFFSET, H, W);
 
   for (int i = 0; i < NUMBER_OF_FILES; i++) {
-    stl[i] = load_stl(filenames[i], params);
+    stl[i] = load_stl(filenames[i], params, file_offsets[i]);
     std::cout << "Successfully loaded " <<  filenames[i] << "%s\n";
     printf("Number of triangles: %i\n", stl[i]->length);
   }
@@ -222,7 +230,7 @@ int main()
   increment_point = start_time;
   for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i);
-    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), i* M_PI/(float)STEPS);
+    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), M_2_PI,i* M_PI/(float)STEPS);
     output_filename = "output/out.ppm";
     if (DEBUG_MODE) {
       current_time = CLOCK();

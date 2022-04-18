@@ -14,12 +14,55 @@ double dot_vec3(const Vec3& a, const Vec3& b)
 struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
 {
   struct Vec3 * cross_product = (struct Vec3 *)malloc(sizeof(struct Vec3));
-  //todo: check this
   cross_product->x = (a.y * b.z) - (b.y * a.z); 
   cross_product->y = (a.z * b.x) - (b.z * a.x);
   cross_product->z = (a.x * b.y) - (b.x * a.y);
   return cross_product;
 } 
+struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad){
+  Vec3 rotation_matrix [3] = {Vec3(0,0,0), Vec3(0,0,0), Vec3(0,0,0)};
+  if (matrix == ROT_X){
+    rotation_matrix[0] = Vec3(1, 0, 0);
+    rotation_matrix[1] = Vec3(0,cos(theta_rad), -sin(theta_rad));
+    rotation_matrix[2] = Vec3(0,sin(theta_rad),cos(theta_rad));
+  } else if (matrix == ROT_Y){
+    rotation_matrix[0] = Vec3(cos(theta_rad), 0, sin(theta_rad));
+    rotation_matrix[1] = Vec3(0,1, 0);
+    rotation_matrix[2] = Vec3(-sin(theta_rad),0,cos(theta_rad));
+  } else if (matrix == ROT_Z){
+    rotation_matrix[0] = Vec3(cos(theta_rad), -sin(theta_rad), 0);
+    rotation_matrix[1] = Vec3(sin(theta_rad), cos(theta_rad), 0);
+    rotation_matrix[2] = Vec3(0,0,1);
+  }
+
+  return Vec3(dot_vec3(rotation_matrix[0], v),
+              dot_vec3(rotation_matrix[1], v),
+              dot_vec3(rotation_matrix[2], v));
+}
+struct Triangle rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad){
+  tri.normal = rotate_vec3(matrix, tri.normal, theta_rad);
+  tri.v0 = rotate_vec3(matrix, tri.v0, theta_rad);
+  tri.v1 = rotate_vec3(matrix, tri.v1, theta_rad);
+  tri.v2 = rotate_vec3(matrix, tri.v2, theta_rad);
+  return tri;
+}
+
+struct Triangle shift_triangle(Triangle &tri, struct Vec3 shift){
+  tri.v0 = tri.v0 + shift;
+  tri.v1 = tri.v1 + shift;
+  tri.v2 = tri.v2 + shift;
+  return tri; 
+}
+
+void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad){
+  for (int i = 0; i < stl->length; i++){
+    struct Triangle tmp_tri = shift_triangle(stl->triangles[i], stl->center * -1);
+    stl->triangles[i] = rotate_triangle(matrix, tmp_tri , theta_rad);
+    stl->triangles[i] = shift_triangle(stl->triangles[i], stl->center);
+  }
+}
+
+
 
 double magnitude_vec3(const Vec3*vec){
   return (sqrt(vec->x* vec->x + vec->y * vec->y + vec->z * vec->z));
@@ -96,7 +139,7 @@ struct Vec3 get_model_center(STL * stl){
 // attributes
 
 // BINARY stl loader (not meant for ascii)
-struct STL* load_stl(const std::string& filename, struct Parameters params)
+struct STL* load_stl(const std::string& filename, struct Parameters params, struct Vec3 file_offsets)
 {
   if (file_exists(filename)){
     std::ifstream ifs(filename);
@@ -211,6 +254,11 @@ struct STL* load_stl(const std::string& filename, struct Parameters params)
       stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 + model_centering_dif;
       stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 + model_centering_dif;
       stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 + model_centering_dif;
+    }
+    for (int i = 0; i < stl_struct->length; i++){
+      stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 + file_offsets;
+      stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 + file_offsets;
+      stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 + file_offsets;
     }
 
     if (params.c_o){
