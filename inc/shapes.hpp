@@ -17,6 +17,9 @@ struct Vec3 {
     double mg = sqrt(x*x + y*y + z*z);
     return Vec3(x/mg,y/mg,z/mg);
   }
+  void print() const {
+    printf("x: %f, y: %f, z: %f\n",x,y,z);
+  }
 };
 
 
@@ -25,9 +28,19 @@ double dot_vec3(const Vec3& a, const Vec3& b);
 struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b);
 
 
-struct STL* load_stl(const std::string& filename);
+struct STL* load_stl(const std::string& filename, struct Parameters params);
 
 void dump_stl(struct STL* polygon, std::string filename);
+
+struct Parameters {
+  double s; // scaling
+  double c_o; // constant offset
+  unsigned int h; // height
+  unsigned int w; // width
+  Parameters(const double s, const double c_o, const unsigned int h, const unsigned int w) :
+             s(s), c_o(c_o), h(h), w(w) {}
+};
+
 
 struct Ray {
   Vec3 o,d;
@@ -66,6 +79,7 @@ struct Triangle {
 struct STL {
   struct Triangle * triangles;
   uint32_t length;
+  Vec3 center;
 };
 
 

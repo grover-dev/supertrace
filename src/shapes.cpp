@@ -21,6 +21,10 @@ struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
   return cross_product;
 } 
 
+double magnitude_vec3(const Vec3*vec){
+  return (sqrt(vec->x* vec->x + vec->y * vec->y + vec->z * vec->z));
+} 
+
 
 inline bool file_exists(const std::string& filename)
 {
@@ -54,12 +58,34 @@ inline void write_vec3_to_file(struct Vec3* vec3, std::ofstream &output_file)
   output_file.write((char *) vec3_byte_buffer, 4);
 }
 
+// move data from a buffer to a 3 element vector
 void map_to_vector(uint32_t * buffer, Vec3 &vector)
 {
   vector.x = *(float *) buffer;
   vector.y = *(float *) (buffer + 1);
   vector.z = *(float *) (buffer + 2);
 }
+
+struct Vec3 get_triangle_center(struct Triangle tri){
+  Vec3 center = Vec3((tri.v0.x + tri.v1.x + tri.v2.x),
+                    (tri.v0.y + tri.v1.y + tri.v2.y),
+                    (tri.v0.z + tri.v1.z + tri.v2.z)); 
+  return (center / 3);
+}
+
+struct Vec3 get_model_center(STL * stl){
+  double total_area = 0.0;
+  struct Vec3 total_weighted_area = Vec3(0,0,0);
+  for (int i = 0; i < stl->length; i++){
+    struct Vec3 edge_0 = stl->triangles[i].v1 - stl->triangles[i].v0;
+    struct Vec3 edge_1 = stl->triangles[i].v2 - stl->triangles[i].v0;
+    double area = 0.5 * magnitude_vec3(cross_vec3(edge_0, edge_1));
+    total_weighted_area = total_weighted_area + (get_triangle_center(stl->triangles[i]) * area); 
+    total_area+=area;
+  }
+  return total_weighted_area/total_area;
+}
+
 
 // stl structure:80 bytes of header, 4 bytes of length, then sets of 50 bytes (at least) 
 // that describe the verticies and the normal vector
@@ -68,7 +94,7 @@ void map_to_vector(uint32_t * buffer, Vec3 &vector)
 // attributes
 
 // BINARY stl loader (not meant for ascii)
-struct STL* load_stl(const std::string& filename)
+struct STL* load_stl(const std::string& filename, struct Parameters params)
 {
   if (file_exists(filename)){
     std::ifstream ifs(filename);
@@ -176,8 +202,18 @@ struct STL* load_stl(const std::string& filename)
     }
     ifs.close();
 
-    if (zeroing_offset.x != 0 || zeroing_offset.y != 0 || zeroing_offset.z != 0){
-      Vec3 offset = Vec3(250,250,250);
+    struct Vec3 center = get_model_center(stl_struct);
+    center.print();
+    Vec3 model_centering_dif =  Vec3(params.h/2, params.w/2, 0.0)- center;
+    for (int i = 0; i < stl_struct->length; i++){
+      stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 + model_centering_dif;
+      stl_struct->triangles[i].v1 = stl_struct->triangles[i].v1 + model_centering_dif;
+      stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 + model_centering_dif;
+    }
+
+    if (params.c_o){
+
+      Vec3 offset = Vec3(params.c_o,params.c_o,params.c_o);
       for (int i = 0; i < stl_struct->length; i++){
         // stl_struct->triangles[i].normal = stl_struct->triangles[i].normal - zeroing_offset;
         // stl_struct->triangles[i].v0 = stl_struct->triangles[i].v0 - zeroing_offset;
@@ -189,6 +225,20 @@ struct STL* load_stl(const std::string& filename)
         stl_struct->triangles[i].v2 = stl_struct->triangles[i].v2 + offset;
       }
     }
+    center = get_model_center(stl_struct);
+    stl_struct->center = center;
+
+    if(params.s != 1.0){
+      center.print();
+      for (int i = 0; i < stl_struct->length; i++){
+        stl_struct->triangles[i].v0 = center + ((stl_struct->triangles[i].v0 - center) * params.s) ;
+        stl_struct->triangles[i].v1 = center + ((stl_struct->triangles[i].v1 - center) * params.s) ;
+        stl_struct->triangles[i].v2 = center + ((stl_struct->triangles[i].v2 - center) * params.s) ;
+      }
+    }
+    
+    // if (params.h)
+
 
     printf("max value: %f and min value: %f\n", max_value, min_value);
     return stl_struct;

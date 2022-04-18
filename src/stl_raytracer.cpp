@@ -6,7 +6,7 @@
 #include <cmath>
 
 // Update both or find a macro trick
-#define FILE_LIST {"big-sphere.stl"}
+#define FILE_LIST {"sphere.stl"}
 #define NUMBER_OF_FILES 1
 
 
@@ -111,13 +111,16 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
 
 #define H 500 // pixel height
 #define W 500 // pixel width
-#define BRIGHTNESS 0.5
-
+#define BRIGHTNESS 0.4
+#define SCALING 5.0
+#define OFFSET 10.0
 #define ZOOM 1
+
+#define STEPS 10
 
 void raytrace(struct STL *stl[], const int number_of_stls, const std::string& filename, float light_angle){
   // creating light source point
-  const Sphere light(Vec3(0, H, 0), 1);
+  const Sphere light(Vec3(W/2+W*cos(light_angle)/2,H/2+H*sin(light_angle)/2, 0), 1);
 
   std::ofstream out(filename);
   out << "P3\n" << W << ' ' << H << ' ' << "255\n";
@@ -129,7 +132,8 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
   int length;
   Vec3 pix_col(black);
   Vec3 * pi = (Vec3 *)malloc(sizeof(Vec3));
-      
+  
+  // printf("light_angle: %f\n", light_angle);
 
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
@@ -137,7 +141,7 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
         length = stl[z]->length;
         pix_col = black;
 
-        Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(sin(light_angle),0,cos(light_angle)));
+        Ray ray(Vec3(x/ZOOM,y/ZOOM,0), Vec3(0,0,1));
         for (int i = 0; i < length; i++){
           if(ray_triangle_intersect(&ray, &(stl[z]->triangles[i]), pi)){
               const Vec3 L = light.c - *pi;
@@ -148,22 +152,36 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
           }
         }
         // debugging highlighting origin with red square
-        if (x <= H/50 && y <= W/50 ){
-        out << (int)255 << ' '
-            << (int)0 << ' '
-            << (int)0 << '\n';
-
-        } else {
-
-        out << (int)pix_col.x << ' '
-            << (int)pix_col.y << ' '
-            << (int)pix_col.z << '\n';
+        if (x <= 10 && y <= 10 ){
+          pix_col = Vec3(255,0,0);
+        } else if (fabs(x - W*cos(light_angle)) <= 1.1 && fabs(y- H*sin(light_angle) <= 1)){
+          pix_col = white;
         }
+        // paint y axis green
+        if (y == 0){
+          pix_col = Vec3(0,255,0);
+        // paint x axis blue
+        } else if (x == 0){
+          pix_col = Vec3(0,0,255);
+        }
+        out << pix_col.x << ' '
+            << pix_col.y << ' '
+            << pix_col.z << '\n';
+        
       }
     }
   }
   out.close();
   free(pi);
+  // for (int z = 0; z<number_of_stls; z++){
+
+  //   // for (int i = 0; i < stl[z]->length; i++){
+  //   //   struct Triangle * tri = &(stl[z]->triangles[i]); 
+  //   //   free(tri);
+  //   // }
+  //   free(stl[z]);
+  // }
+  
 }
 
 
@@ -173,17 +191,20 @@ int main()
   struct STL *stl[NUMBER_OF_FILES];
   struct STL *objects[NUMBER_OF_FILES];
   const std::string filenames[NUMBER_OF_FILES] = FILE_LIST;
+  
+  struct Parameters params = Parameters(SCALING, OFFSET, H, W);
 
   for (int i = 0; i < NUMBER_OF_FILES; i++) {
-    stl[i] = load_stl(filenames[i]);
+    stl[i] = load_stl(filenames[i], params);
     std::cout << "Successfully loaded " <<  filenames[i] << "%s\n";
     printf("Number of triangles: %i\n", stl[i]->length);
   }
 
   std::string output_filename = "output/out.ppm";
-  for (int i = 0; i < 20; i++){
+  const int start = 0;
+  for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i);
-    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), M_PI/(float)i);
+    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), i* M_PI/(float)STEPS);
     output_filename = "output/out.ppm";
   }
 }
