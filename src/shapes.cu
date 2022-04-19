@@ -46,7 +46,7 @@ __device__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, d
               dot_vec3(rotation_matrix[2], v));
 }
 
-void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad){
+__device__ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad){
   tri.normal = rotate_vec3(matrix, tri.normal, theta_rad);
   tri.v0 = rotate_vec3(matrix, tri.v0, theta_rad);
   tri.v1 = rotate_vec3(matrix, tri.v1, theta_rad);

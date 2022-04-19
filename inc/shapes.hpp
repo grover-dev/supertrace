@@ -28,9 +28,9 @@ struct Vec3 {
 };
 
 
-__device__ double dot_vec3(const Vec3& a, const Vec3& b);
+__device__ __host__ double dot_vec3(const Vec3& a, const Vec3& b);
 
-__device__ struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b);
+__device__ __host__ struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b);
 
 
 struct Triangle {
