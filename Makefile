@@ -4,7 +4,8 @@ INC = ./inc
 OBJ = ./obj
 CC = nvcc
 
-CFLAGS = -O3 -std=c++11  --gpu-architecture=compute_37 --gpu-code=sm_37
+# card code reference: https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+CFLAGS = -O3 -std=c++11  --gpu-architecture=compute_75 --gpu-code=sm_75
 
 SOURCES := $(wildcard $(SRC)/*.cu) 
 INCLUDES := $(wildcard $(SRC)/*.cuh)
