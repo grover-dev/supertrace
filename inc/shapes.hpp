@@ -8,17 +8,17 @@
 
 struct Vec3 {
   float x,y,z;
-  Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
-  Vec3(const Vec3& v): x(v.x), y(v.y), z(v.z) {}
-  Vec3 operator + (const Vec3& v) const { return Vec3(x+v.x, y+v.y, z+v.z); }
-  Vec3 operator - (const Vec3& v) const { return Vec3(x-v.x, y-v.y, z-v.z); }
-  Vec3 operator * (float d) const { return Vec3(x*d, y*d, z*d); }
-  Vec3 operator / (float d) const { return Vec3(x/d, y/d, z/d); }
-  Vec3 max(const Vec3& v)
+  __device__ Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
+  __device__ Vec3(const Vec3& v): x(v.x), y(v.y), z(v.z) {}
+  __device__ Vec3 operator + (const Vec3& v) const { return Vec3(x+v.x, y+v.y, z+v.z); }
+  __device__ Vec3 operator - (const Vec3& v) const { return Vec3(x-v.x, y-v.y, z-v.z); }
+  __device__ Vec3 operator * (float d) const { return Vec3(x*d, y*d, z*d); }
+  __device__ Vec3 operator / (float d) const { return Vec3(x/d, y/d, z/d); }
+  __device__ Vec3 max(const Vec3& v)
   { 
     return Vec3((x>v.x) ? x : v.x,(y>v.y) ? y : v.y,(z>v.z) ? z : v.z);
   }
-  Vec3 normalize() const {
+  __device__ Vec3 normalize() const {
     double mg = sqrt(x*x + y*y + z*z);
     return Vec3(x/mg,y/mg,z/mg);
   }
@@ -50,9 +50,9 @@ struct STL {
 };
 
 enum ROT_MATRIX_TYPE {ROT_X, ROT_Y, ROT_Z};
-struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad);
-void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad);
-void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad);
+__device__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad);
+__device__ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad);
+__device__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad);
 
 struct STL* load_stl(const std::string& filename, struct Parameters params, struct Vec3 file_offsets);
 
