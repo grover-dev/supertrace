@@ -1,4 +1,4 @@
-#include "shapes.hpp"
+#include "shapes.cuh"
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string>

@@ -81,8 +81,8 @@ struct Sphere {
   Vec3 c;
   double r;
   __device__ __host__ Sphere(const Vec3& c, float r) : c(c), r(r) {}
-  __device__ __host__Vec3 getNormal(const Vec3& pi) const { return (pi - c) / r; }
-  __device__ __host__bool intersect(const Ray& ray, double &t) const {
+  __device__ __host__ Vec3 getNormal(const Vec3& pi) const { return (pi - c) / r; }
+  __device__ __host__ bool intersect(const Ray& ray, double &t) const {
     const Vec3 o = ray.o;
     const Vec3 d = ray.d;
     const Vec3 oc = o - c;

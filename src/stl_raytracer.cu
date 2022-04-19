@@ -1,6 +1,6 @@
 #include <fstream>
 #include <stdlib.h>
-#include "shapes.hpp"
+#include "shapes.cuh"
 #include <string>
 #include <iostream>
 #include <cmath>
