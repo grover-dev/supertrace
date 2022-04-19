@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <time.h>
+#include <stdint.h>
 
 
 double CLOCK() {
@@ -14,7 +15,7 @@ double CLOCK() {
 }
 
 #define MAX_PIXEL 1023
-void clamp_pixels(Vec3& col)
+__device__ void clamp_pixels(Vec3& col)
 {
   col.x = (col.x > MAX_PIXEL) ? MAX_PIXEL : (col.x < 0) ? 0 : col.x;
   col.y = (col.y > MAX_PIXEL) ? MAX_PIXEL : (col.y < 0) ? 0 : col.y;
@@ -103,16 +104,16 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   double light_source_z = 500.0;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
-  const Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
-  const Vec3 black(0, 0, 0);
-  const Vec3 red(MAX_PIXEL, 0, 0);
+  const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
+  const struct Vec3 black(0, 0, 0);
+  const struct Vec3 red(MAX_PIXEL, 0, 0);
 
-  Vec3 pix_col(black);
-  Vec3 *pi;
-  cudaMalloc(&Vec3, sizeof(Vec3));
+  struct Vec3 pix_col(black);
+  struct Vec3 *pi;
+  cudaMalloc(&pi, sizeof(Vec3));
 
   
-  Vec3 pix_col_tmp = black;
+  struct Vec3 pix_col_tmp = black;
 
   rotate_stl(ROT_Z, stl[0], object_angle);
   rotate_stl(ROT_X, stl[0], object_angle);
@@ -169,7 +170,6 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
 int main() 
 {
   struct STL *stl[NUMBER_OF_FILES];
-  struct STL *objects[NUMBER_OF_FILES];
   const std::string filenames[NUMBER_OF_FILES] = FILE_LIST;
 
   double start_time, finish_time, total_time, current_time, increment_point;
@@ -192,17 +192,18 @@ int main()
     // copy values to the gpu kernel
     uint32_t stl_size = NUMBER_OF_FILES * sizeof(struct STL);
     uint32_t output_size = H*W*sizeof(struct Vec3);
-    Vec3 *output_values[H*W] = malloc(output_size);
+    Vec3 *output_values;
+    cudaMallocHost(&output_values, output_size);
 
-    struct STL *stl_d;
+    struct STL **stl_d;
     cudaMalloc(&stl_d, stl_size);
-    cudaMemcpy(stl, stl_d, stl_size, cudaMemcpyHostToDevice);
-    struct Vec3 output_values_d;
+    cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
+    struct Vec3 *output_values_d;
     cudaMalloc(&output_values_d, output_size);
-    cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyHostToDevice);
+    cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
 
-    raytrace<<H, W>>(stl_d, NUMBER_OF_FILES, output_values_d, i*2*M_PI/(float)STEPS, M_PI/(float)STEPS);
+    raytrace<<<H, W>>>(stl_d, NUMBER_OF_FILES, output_values_d, i*2*M_PI/(float)STEPS, M_PI/(float)STEPS);
     //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
 
     // copy values back out

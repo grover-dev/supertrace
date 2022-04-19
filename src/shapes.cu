@@ -293,7 +293,7 @@ struct STL* load_stl(const std::string& filename, struct Parameters params, stru
     return stl_struct;
   }
 
-  return nullptr; // check for this "exception"
+  return NULL; // check for this "exception"
 }
 
 // BINARY stl dumper (not meant for ascii)

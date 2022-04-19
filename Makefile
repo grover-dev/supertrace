@@ -4,7 +4,7 @@ INC = ./inc
 OBJ = ./obj
 CC = nvcc
 
-CFLAGS = -O3 --gpu-architecture=compute_37 --gpu-code=sm_37
+CFLAGS = -O3 -std=c++11 --gpu-architecture=compute_37 --gpu-code=sm_37
 
 SOURCES := $(wildcard $(SRC)/*.cu) 
 INCLUDES := $(wildcard $(INC)/*.hpp)
