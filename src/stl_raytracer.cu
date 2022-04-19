@@ -111,20 +111,23 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   struct Vec3 pix_col(black);
   struct Vec3 *pi;
   cudaMalloc(&pi, sizeof(Vec3));
-
+  // printf("stl point %lu\n", &stl[0]->triangles);
+  // struct Vec3 tmp = stl[0]->triangles[0].v0;
   // printf("here_cuda, i: %i, j: %i\n",i,j);
-  printf("here_Cuda i: %i, j: %i, threadid: %i, blockid: %i, blockdim; %i\n",i, j,threadIdx.x, blockIdx.x,blockDim.x );
+  // printf("here_Cuda i: %i, j: %i, threadid: %i, blockid: %i, blockdim: %i\n Vec3: x = %f, y = %f, z=%f \n",
+  //         i, j,threadIdx.x, blockIdx.x,blockDim.x , tmp.x,tmp.y,tmp.z);
 
+  printf("stl_len: %i\n", stl[0]->length);
 
   rotate_stl(ROT_Z, stl[0], object_angle);
   rotate_stl(ROT_X, stl[0], object_angle);
   rotate_stl(ROT_Y, stl[0], -object_angle);
   
-  
   for (int z = 0; z < number_of_stls; z++) {
     pix_col = black;
     Ray ray(Vec3(i/ZOOM,j/ZOOM,0), Vec3(0,0,1));
     for (int ind = 0; ind < stl[z]->length; ind++){
+      printf("cudahere\n");
       if(ray_triangle_intersect(&ray, &(stl[z]->triangles[ind]), pi)){
           const Vec3 L = light.c - *pi;
           const Vec3 N = stl[z]->triangles[ind].normal;
@@ -182,30 +185,34 @@ int main()
   const int start = 0;
   start_time = CLOCK();
   increment_point = start_time;
+
+  cudaError_t code;
+
   for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i+1);
     printf("here\n");
     // copy values to the gpu kernel
-    uint32_t stl_size = NUMBER_OF_FILES * (stl[0]->length * sizeof(stl[0]->triangles) + sizeof(stl[0]->length) + sizeof(stl[0]->center));
+    uint32_t stl_size = NUMBER_OF_FILES * (stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
+    printf("stl len: %i", stl_size);
     uint32_t output_size = H*W*sizeof(struct Vec3);
     Vec3 *output_values;
-    cudaMallocHost(&output_values, output_size);
+    code = cudaMallocHost(&output_values, output_size);
 
     struct STL **stl_d;
-    cudaMalloc(&stl_d, stl_size);
-    cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
+    code = cudaMalloc(&stl_d, stl_size);
+    code = cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
     struct Vec3 *output_values_d;
-    cudaMalloc(&output_values_d, output_size);
-    cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
+    code = cudaMalloc(&output_values_d, output_size);
+    code = cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
 
     raytrace<<<H, W>>>(stl_d, NUMBER_OF_FILES, output_values_d, i*2*M_PI/(float)STEPS, M_PI/(float)STEPS);
     //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
 
     // copy values back out
-    cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyDeviceToHost);
-    cudaFree(output_values_d);
-    cudaFree(stl_d);
+    code = cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyDeviceToHost);
+    code = cudaFree(output_values_d);
+    code = cudaFree(stl_d);
 
     // Save values locally
     output_filename.insert(10,appended_info);

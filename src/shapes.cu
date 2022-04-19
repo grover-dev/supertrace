@@ -13,7 +13,9 @@ __device__ double dot_vec3(const Vec3& a, const Vec3& b)
 
 __device__ struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
 {
-  struct Vec3 * cross_product = (struct Vec3 *)malloc(sizeof(struct Vec3));
+  struct Vec3 * cross_product; 
+  cudaMalloc(&cross_product, sizeof(struct Vec3));
+  // = (struct Vec3 *)malloc(sizeof(struct Vec3));
   cross_product->x = (a.y * b.z) - (b.y * a.z); 
   cross_product->y = (a.z * b.x) - (b.z * a.x);
   cross_product->z = (a.x * b.y) - (b.x * a.y);
@@ -61,6 +63,7 @@ __device__ void shift_triangle(Triangle &tri, struct Vec3 shift){
 
 __device__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad){
   for (int i = 0; i < stl->length; i++){
+    
     shift_triangle(stl->triangles[i], stl->center * -1);
     rotate_triangle(matrix, stl->triangles[i] , theta_rad);
     shift_triangle(stl->triangles[i], stl->center);
@@ -143,7 +146,7 @@ struct Vec3 get_model_center(STL * stl){
 // attributes
 
 // BINARY stl loader (not meant for ascii)
-struct STL* load_stl(const std::string& filename, struct Parameters params, struct Vec3 file_offsets)
+__host__ struct STL* load_stl(const std::string& filename, struct Parameters params, struct Vec3 file_offsets)
 {
   if (file_exists(filename)){
     std::ifstream ifs(filename);
@@ -174,8 +177,11 @@ struct STL* load_stl(const std::string& filename, struct Parameters params, stru
           length |= (temp_4byte_reader << (8 * (index - 80)));
 
           if (index == 83) {
-            stl_struct = (struct STL *) malloc((sizeof(struct STL)));
-            stl_struct->triangles = (struct Triangle *) malloc(sizeof(struct Triangle) * length);
+            struct STL * stl_struct;
+            cudaMallocHost(&stl_struct, sizeof(struct STL));
+            // stl_struct = (struct STL *) malloc((sizeof(struct STL)));
+            cudaMallocHost(&stl_struct->triangles, sizeof(struct Triangle)*length);
+            // stl_struct->triangles = (struct Triangle *) malloc(sizeof(struct Triangle) * length);
             stl_struct->length = length;
           }
         } else if (index >= 84) {
