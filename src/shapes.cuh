@@ -1,5 +1,5 @@
-#ifndef SHAPES_HPP
-#define SHAPES_HPP
+#ifndef SHAPES_CUH
+#define SHAPES_CUH
 
 #include <cmath>
 #include <stdint.h>

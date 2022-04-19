@@ -4,18 +4,17 @@ INC = ./inc
 OBJ = ./obj
 CC = nvcc
 
-CFLAGS = -O3 -std=c++11 --gpu-architecture=compute_37 --gpu-code=sm_37
+CFLAGS = -O3 -std=c++11  --gpu-architecture=compute_37 --gpu-code=sm_37
 
 SOURCES := $(wildcard $(SRC)/*.cu) 
-INCLUDES := $(wildcard $(INC)/*.hpp)
+INCLUDES := $(wildcard $(SRC)/*.cuh)
 OBJECTS := $(patsubst $(SRC)/%.cu, $(OBJ)/%.o, $(SOURCES))
 
-$(OBJ)/%.o: $(SRC)/%.c
-	$(CC)  -c $< -o $@ $(CFLAGS)
-
+$(OBJ)/%.o: $(SRC)/%.cu
+	$(CC)  -c $< -o $@ $(CFLAGS) -dc
 
 raytracer: $(OBJECTS) 
-	$(CC) -o $@ $^ -I$(INC) $(CFLAGS)
+	$(CC) -o $@ $^  $(CFLAGS) -I$(INC)
 
 
 .PHONY: clean
