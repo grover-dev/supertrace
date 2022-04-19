@@ -2,11 +2,11 @@
 SRC = ./src
 INC = ./inc
 OBJ = ./obj
-CC = g++
+CC = nvcc
 
-CFLAGS = -O3
+CFLAGS = -O3 --gpu-architecture=compute_37 --gpu-code=sm_37
 
-SOURCES := $(wildcard $(SRC)/*.cpp) 
+SOURCES := $(wildcard $(SRC)/*.cu) 
 INCLUDES := $(wildcard $(INC)/*.hpp)
 OBJECTS := $(patsubst $(SRC)/%.c, $(OBJ)/%.o, $(SOURCES))
 

@@ -23,7 +23,7 @@ void clamp_pixels(Vec3& col)
 
 
 
-bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
+__device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
   // error bound for 0
   const float epsilon = 0.0000001;
 
@@ -85,27 +85,30 @@ struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
 #define OFFSET 0.0
 #define ZOOM 1
 
-#define STEPS 100
+#define STEPS 10
 
-// generate a raytraced frame
+// generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
 // and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
-void raytrace(struct STL *stl[], const int number_of_stls, const std::string& filename, float light_angle, float object_angle){
+__global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *output, float light_angle, float object_angle)
+{
+  int i = threadIdx.x + blockIdx.x * blockDim.x;
+  int j = threadIdx.y + blockIdx.y * blockDim.y;
+  if((i >= W) || (j >= H)) return;
+  int pixel_index = j*W + i;
+
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
   double light_source_z = 500.0;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
-  std::ofstream out(filename);
-  out << "P3\n" << W << ' ' << H << ' ' << MAX_PIXEL<<"\n";
-
   const Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
   const Vec3 black(0, 0, 0);
   const Vec3 red(MAX_PIXEL, 0, 0);
 
   Vec3 pix_col(black);
-  Vec3 *pi = (Vec3 *)malloc(sizeof(Vec3));
+  Vec3 *pi = (Vec3 *)cudaMalloc(sizeof(Vec3));
   
   Vec3 pix_col_tmp = black;
 
@@ -113,48 +116,41 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
   rotate_stl(ROT_X, stl[0], object_angle);
   rotate_stl(ROT_Y, stl[0], -object_angle);
   
-  for (int j = 0; j < H; ++j) {
-    for (int i = 0; i < W; ++i) {
-      for (int z = 0; z < number_of_stls; z++) {
-        pix_col = black;
-        Ray ray(Vec3(i/ZOOM,j/ZOOM,0), Vec3(0,0,1));
-        for (int ind = 0; ind < stl[z]->length; ind++){
-
-          if(ray_triangle_intersect(&ray, &(stl[z]->triangles[ind]), pi)){
-              const Vec3 L = light.c - *pi;
-              const Vec3 N = stl[z]->triangles[ind].normal;
-              const double dt = dot_vec3(L.normalize(), N.normalize());
-              pix_col = (red + white*dt) * BRIGHTNESS;
-              clamp_pixels(pix_col); 
-              if(ind > 0){
-                pix_col = pix_col_tmp.max(pix_col);
-              }
-              pix_col_tmp = pix_col;
+  
+  for (int z = 0; z < number_of_stls; z++) {
+    pix_col = black;
+    Ray ray(Vec3(i/ZOOM,j/ZOOM,0), Vec3(0,0,1));
+    for (int ind = 0; ind < stl[z]->length; ind++){
+      if(ray_triangle_intersect(&ray, &(stl[z]->triangles[ind]), pi)){
+          const Vec3 L = light.c - *pi;
+          const Vec3 N = stl[z]->triangles[ind].normal;
+          const double dt = dot_vec3(L.normalize(), N.normalize());
+          pix_col = (red + white*dt) * BRIGHTNESS;
+          clamp_pixels(pix_col); 
+          if(ind > 0){
+            pix_col = pix_col_tmp.max(pix_col);
           }
-        }
-        pix_col_tmp = black;
-        // debugging highlighting origin with red square
-        if (i <= 10 && j <= 10 ){
-          pix_col = Vec3(MAX_PIXEL,0,0);
-        } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
-          pix_col = white;
-        }
-        // paint y axis green
-        if (j == 0){
-          pix_col = Vec3(0,MAX_PIXEL,0);
-        // paint x axis blue
-        } else if (i == 0){
-          pix_col = Vec3(0,0,MAX_PIXEL);
-        }
-        out << (int) pix_col.x << ' '
-            << (int) pix_col.y << ' '
-            << (int) pix_col.z << '\n';
-        
+          pix_col_tmp = pix_col;
       }
     }
+    pix_col_tmp = black;
+    output[pixel_index] = pix_col;
+    cudaFree(pi);
   }
-  out.close();
-  free(pi);
+  //   // debugging highlighting origin with red square
+  //   if (i <= 10 && j <= 10 ){
+  //     pix_col = Vec3(MAX_PIXEL,0,0);
+  //   } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
+  //     pix_col = white;
+  //   }
+  //   // paint y axis green
+  //   if (j == 0){
+  //     pix_col = Vec3(0,MAX_PIXEL,0);
+  //   // paint x axis blue
+  //   } else if (i == 0){
+  //     pix_col = Vec3(0,0,MAX_PIXEL);
+  //   }
+  // }
   // for (int z = 0; z<number_of_stls; z++){
 
   //   // for (int i = 0; i < stl[z]->length; i++){
@@ -189,8 +185,39 @@ int main()
   start_time = CLOCK();
   increment_point = start_time;
   for (int i = start; i < STEPS+start; i++){
-    std::string appended_info = std::to_string(i+1); //
-    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
+    std::string appended_info = std::to_string(i+1);
+
+    // copy values to the gpu kernel
+    uint32_t stl_size = NUMBER_OF_FILES * sizeof(struct STL);
+    uint32_t output_size = H*W*sizeof(struct Vec3);
+    Vec3 *output_values[H*W] = malloc(output_size);
+
+    struct STL *stl_d = cudaMalloc(stl_size);
+    cudaMemcpy(stl, stl_d, stl_size, cudaMemcpyHostToDevice);
+    struct Vec3 output_values_d = cudaMalloc(output_size);
+    cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyHostToDevice);
+
+
+    raytrace<<H, W>>(stl_d, NUMBER_OF_FILES, output_values_d, i*2*M_PI/(float)STEPS, M_PI/(float)STEPS);
+    //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
+
+    // copy values back out
+    cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyDeviceToHost);
+    cudaFree(output_values_d);
+    cudaFree(stl_d);
+
+    // Save values locally
+    output_filename.insert(10,appended_info);
+    std::ofstream out(output_filename);
+    out << "P3\n" << W << ' ' << H << ' ' << MAX_PIXEL<<"\n";
+
+    for (int i = 0; i < H*W; i++) {
+      out << (int) output_values[i].x << ' '
+          << (int) output_values[i].y << ' '
+          << (int) output_values[i].z << '\n';
+    }
+    out.close();
+    
     output_filename = "output/out.ppm";
     if (DEBUG_MODE) {
       current_time = CLOCK();

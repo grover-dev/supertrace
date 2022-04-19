@@ -6,20 +6,21 @@
 
 const uint8_t index_mapping[12] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
 
-double dot_vec3(const Vec3& a, const Vec3& b)
+__device__ double dot_vec3(const Vec3& a, const Vec3& b)
 {
   return (a.x*b.x + a.y*b.y + a.z*b.z);
 }
 
-struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
+__device__ struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
 {
   struct Vec3 * cross_product = (struct Vec3 *)malloc(sizeof(struct Vec3));
   cross_product->x = (a.y * b.z) - (b.y * a.z); 
   cross_product->y = (a.z * b.x) - (b.z * a.x);
   cross_product->z = (a.x * b.y) - (b.x * a.y);
   return cross_product;
-} 
-struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad){
+}
+
+__device__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad){
   Vec3 rotation_matrix [3] = {Vec3(0,0,0), Vec3(0,0,0), Vec3(0,0,0)};
   // printf("cos: %f, sin: %f\n", cos(theta_rad), sin(theta_rad));
   if (matrix == ROT_X){
@@ -44,6 +45,7 @@ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta
               dot_vec3(rotation_matrix[1], v),
               dot_vec3(rotation_matrix[2], v));
 }
+
 void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad){
   tri.normal = rotate_vec3(matrix, tri.normal, theta_rad);
   tri.v0 = rotate_vec3(matrix, tri.v0, theta_rad);
@@ -51,20 +53,19 @@ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_ra
   tri.v2 = rotate_vec3(matrix, tri.v2, theta_rad);
 }
 
-void shift_triangle(Triangle &tri, struct Vec3 shift){
+__device__ void shift_triangle(Triangle &tri, struct Vec3 shift){
   tri.v0 = tri.v0 + shift;
   tri.v1 = tri.v1 + shift;
   tri.v2 = tri.v2 + shift;
 }
 
-void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad){
+__device__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad){
   for (int i = 0; i < stl->length; i++){
     shift_triangle(stl->triangles[i], stl->center * -1);
     rotate_triangle(matrix, stl->triangles[i] , theta_rad);
     shift_triangle(stl->triangles[i], stl->center);
   }
 }
-
 
 
 double magnitude_vec3(const Vec3*vec){
