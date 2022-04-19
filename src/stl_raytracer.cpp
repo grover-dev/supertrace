@@ -200,39 +200,39 @@ void raytrace(struct STL *stl[], const int number_of_stls, const std::string& fi
 
 
 // using Möller-Trumbore algorithm for raytracing w/ triangles 
-int main() 
-{
-  struct STL *stl[NUMBER_OF_FILES];
-  struct STL *objects[NUMBER_OF_FILES];
-  const std::string filenames[NUMBER_OF_FILES] = FILE_LIST;
+// int main() 
+// {
+//   struct STL *stl[NUMBER_OF_FILES];
+//   struct STL *objects[NUMBER_OF_FILES];
+//   const std::string filenames[NUMBER_OF_FILES] = FILE_LIST;
 
-  double start_time, finish_time, total_time, current_time, increment_point;
+//   double start_time, finish_time, total_time, current_time, increment_point;
   
-  struct Parameters params = Parameters(SCALING, OFFSET, H, W);
+//   struct Parameters params = Parameters(SCALING, OFFSET, H, W);
 
-  for (int i = 0; i < NUMBER_OF_FILES; i++) {
-    stl[i] = load_stl(filenames[i], params);
-    std::cout << "Successfully loaded " <<  filenames[i] << "%s\n";
-    printf("Number of triangles: %i\n", stl[i]->length);
-  }
+//   for (int i = 0; i < NUMBER_OF_FILES; i++) {
+//     stl[i] = load_stl(filenames[i], params);
+//     std::cout << "Successfully loaded " <<  filenames[i] << "%s\n";
+//     printf("Number of triangles: %i\n", stl[i]->length);
+//   }
 
-  std::string output_filename = "output/out.ppm";
-  const int start = 0;
-  start_time = CLOCK();
-  increment_point = start_time;
-  for (int i = start; i < STEPS+start; i++){
-    std::string appended_info = std::to_string(i);
-    raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), i* M_PI/(float)STEPS);
-    output_filename = "output/out.ppm";
-    if (DEBUG_MODE) {
-      current_time = CLOCK();
-      printf("Frame %d processed in %f ms\n", i, current_time-increment_point);
-      increment_point = current_time;
-    }
-  }
-  if (DEBUG_MODE) {
-    finish_time = CLOCK();
-    total_time = finish_time-start_time;
-    printf("The total time to raytrace was: %f ms\n", total_time);
-  }
-}
+//   std::string output_filename = "output/out.ppm";
+//   const int start = 0;
+//   start_time = CLOCK();
+//   increment_point = start_time;
+//   for (int i = start; i < STEPS+start; i++){
+//     std::string appended_info = std::to_string(i);
+//     raytrace(stl, NUMBER_OF_FILES, output_filename.insert(10,appended_info), i* M_PI/(float)STEPS);
+//     output_filename = "output/out.ppm";
+//     if (DEBUG_MODE) {
+//       current_time = CLOCK();
+//       printf("Frame %d processed in %f ms\n", i, current_time-increment_point);
+//       increment_point = current_time;
+//     }
+//   }
+//   if (DEBUG_MODE) {
+//     finish_time = CLOCK();
+//     total_time = finish_time-start_time;
+//     printf("The total time to raytrace was: %f ms\n", total_time);
+//   }
+// }
