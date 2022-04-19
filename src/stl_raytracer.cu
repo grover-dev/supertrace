@@ -96,7 +96,7 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   int i = threadIdx.x + blockIdx.x * blockDim.x;
   int j = threadIdx.y + blockIdx.y * blockDim.y;
   if((i >= W) || (j >= H)) return;
-  int pixel_index = j*W + i;
+  int pixel_index = j + i*W;
 
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
@@ -112,8 +112,9 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   struct Vec3 *pi;
   cudaMalloc(&pi, sizeof(Vec3));
 
-  
-  struct Vec3 pix_col_tmp = black;
+  // printf("here_cuda, i: %i, j: %i\n",i,j);
+  printf("here_Cuda i: %i, j: %i, threadid: %i, blockid: %i, blockdim; %i\n",i, j,threadIdx.x, blockIdx.x,blockDim.x );
+
 
   rotate_stl(ROT_Z, stl[0], object_angle);
   rotate_stl(ROT_X, stl[0], object_angle);
@@ -130,14 +131,9 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
           const double dt = dot_vec3(L.normalize(), N.normalize());
           pix_col = (red + white*dt) * BRIGHTNESS;
           clamp_pixels(pix_col); 
-          if(ind > 0){
-            pix_col = pix_col_tmp.max(pix_col);
-          }
-          pix_col_tmp = pix_col;
       }
     }
-    pix_col_tmp = black;
-    output[pixel_index] = pix_col;
+    output[pixel_index] = red;
     cudaFree(pi);
   }
   //   // debugging highlighting origin with red square
@@ -188,9 +184,9 @@ int main()
   increment_point = start_time;
   for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i+1);
-
+    printf("here\n");
     // copy values to the gpu kernel
-    uint32_t stl_size = NUMBER_OF_FILES * sizeof(struct STL);
+    uint32_t stl_size = NUMBER_OF_FILES * (stl[0]->length * sizeof(stl[0]->triangles) + sizeof(stl[0]->length) + sizeof(stl[0]->center));
     uint32_t output_size = H*W*sizeof(struct Vec3);
     Vec3 *output_values;
     cudaMallocHost(&output_values, output_size);
@@ -207,7 +203,7 @@ int main()
     //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
 
     // copy values back out
-    cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyDeviceToHost);
     cudaFree(output_values_d);
     cudaFree(stl_d);
 
