@@ -108,7 +108,9 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   const Vec3 red(MAX_PIXEL, 0, 0);
 
   Vec3 pix_col(black);
-  Vec3 *pi = (Vec3 *)cudaMalloc(sizeof(Vec3));
+  Vec3 *pi;
+  cudaMalloc(&Vec3, sizeof(Vec3));
+
   
   Vec3 pix_col_tmp = black;
 
@@ -192,9 +194,11 @@ int main()
     uint32_t output_size = H*W*sizeof(struct Vec3);
     Vec3 *output_values[H*W] = malloc(output_size);
 
-    struct STL *stl_d = cudaMalloc(stl_size);
+    struct STL *stl_d;
+    cudaMalloc(&stl_d, stl_size);
     cudaMemcpy(stl, stl_d, stl_size, cudaMemcpyHostToDevice);
-    struct Vec3 output_values_d = cudaMalloc(output_size);
+    struct Vec3 output_values_d;
+    cudaMalloc(&output_values_d, output_size);
     cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyHostToDevice);
 
 
@@ -211,10 +215,10 @@ int main()
     std::ofstream out(output_filename);
     out << "P3\n" << W << ' ' << H << ' ' << MAX_PIXEL<<"\n";
 
-    for (int i = 0; i < H*W; i++) {
-      out << (int) output_values[i].x << ' '
-          << (int) output_values[i].y << ' '
-          << (int) output_values[i].z << '\n';
+    for (int j = 0; j < H*W; j++) {
+      out << (int) output_values[j].x << ' '
+          << (int) output_values[j].y << ' '
+          << (int) output_values[j].z << '\n';
     }
     out.close();
     
