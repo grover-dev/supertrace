@@ -132,9 +132,9 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
       if(ray_triangle_intersect(&ray, &(tri_d[ind]), pi)){
           const Vec3 L = light.c - *pi;
           const Vec3 N = stl[z]->triangles[ind].normal;
-          const double dt = dot_vec3(L.normalize(), N.normalize());
+          const double dt = abs(dot_vec3(L.normalize(), N.normalize()));
           pix_col = (red + white*dt) * BRIGHTNESS;
-          clamp_pixels(pix_col); 
+          clamp_pixels(pix_col);
       }
     }
     // debugging highlighting origin with red square
