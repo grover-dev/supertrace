@@ -13,8 +13,8 @@ __device__ double dot_vec3(const Vec3& a, const Vec3& b)
 
 __device__ struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
 {
-  struct Vec3 * cross_product; 
-  cudaMalloc(&cross_product, sizeof(struct Vec3));
+  struct Vec3 * cross_product = (struct Vec3 *)malloc(sizeof(struct Vec3));
+  // cudaMalloc(&cross_product, sizeof(struct Vec3));
   // = (struct Vec3 *)malloc(sizeof(struct Vec3));
   cross_product->x = (a.y * b.z) - (b.y * a.z); 
   cross_product->y = (a.z * b.x) - (b.z * a.x);
@@ -177,7 +177,6 @@ __host__ struct STL* load_stl(const std::string& filename, struct Parameters par
           length |= (temp_4byte_reader << (8 * (index - 80)));
 
           if (index == 83) {
-            struct STL * stl_struct;
             cudaMallocHost(&stl_struct, sizeof(struct STL));
             // stl_struct = (struct STL *) malloc((sizeof(struct STL)));
             cudaMallocHost(&stl_struct->triangles, sizeof(struct Triangle)*length);
