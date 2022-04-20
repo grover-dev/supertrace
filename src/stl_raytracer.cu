@@ -1,11 +1,12 @@
 #include <fstream>
 #include <stdlib.h>
-#include "shapes.cuh"
 #include <string>
 #include <iostream>
 #include <cmath>
 #include <time.h>
 #include <stdint.h>
+#include "shapes.cuh"
+// #include "stl_raytracer.h"
 
 
 __host__ double CLOCK() {
@@ -87,7 +88,6 @@ struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,500)};//, Vec3(100,0,0)};
 #define OFFSET 0.0
 #define ZOOM 1
 
-#define STEPS 20
 
 // generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
@@ -167,7 +167,7 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
 
 
 // using Möller-Trumbore algorithm for raytracing w/ triangles 
-int main() 
+void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps) 
 {
   struct STL *stl[NUMBER_OF_FILES];
   const std::string filenames[NUMBER_OF_FILES] = FILE_LIST;
@@ -183,7 +183,6 @@ int main()
   }
 
   std::string output_filename = "output/out.ppm";
-  const int start = 0;
   start_time = CLOCK();
   increment_point = start_time;
 
@@ -202,12 +201,20 @@ int main()
   size_t free, total;
   cudaMemGetInfo(&free,&total);
   printf("%d KB free of total %d KB\n",free/1024,total/1024);
-  for (int i = start; i < STEPS+start; i++){
+
+  int last_frame = 0;
+  for (int i = 0; i < frame_arr_length; i++){
     std::string appended_info = std::to_string(i+1);
     // copy values to the gpu kernel
+    
 
-    float object_angle =  M_PI/(float)STEPS;
-  
+    float object_angle;
+    if (i > 0){
+      object_angle =  (frame_arr[i] - last_frame) * M_PI/(float)total_steps;
+    } else {
+      object_angle = frame_arr[i ] * M_PI/(float)total_steps; 
+    }
+    last_frame = frame_arr[i];
     rotate_stl(ROT_Z, stl[0], -object_angle/2);
     // rotate_stl(ROT_X, stl[0], -object_angle*2);
     // rotate_stl(ROT_Y, stl[0], object_angle);
@@ -227,7 +234,7 @@ int main()
     code = cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
 
-    raytrace<<<H, W>>>(stl_d, tri_d, NUMBER_OF_FILES, output_values_d, i*M_PI/(float)STEPS, M_PI/(float)STEPS);
+    raytrace<<<H, W>>>(stl_d, tri_d, NUMBER_OF_FILES, output_values_d, frame_arr[i]*M_PI/(float)total_steps, M_PI/(float)total_steps);
     //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
     cudaDeviceSynchronize();
     // copy values back out
@@ -248,7 +255,7 @@ int main()
     output_filename = "output/out.ppm";
     if (DEBUG_MODE) {
       current_time = CLOCK();
-      printf("Frame %d processed in %f ms\n", i, current_time-increment_point);
+      printf("Frame %d processed in %f ms\n", frame_arr[i], current_time-increment_point);
       increment_point = current_time;
     }
   }
@@ -259,4 +266,29 @@ int main()
     total_time = finish_time-start_time;
     printf("The total time to raytrace was: %f ms\n", total_time);
   }
+}
+
+#define STEPS 100
+
+#include "mpi.h"
+int main(int argc, char *argv[]){
+
+  int numprocs, rank, namelen;
+  char processor_name[MPI_MAX_PROCESSOR_NAME];
+
+  // mpi initialization 
+  MPI_Init(&argc, &argv);
+  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Get_processor_name(processor_name, &namelen);
+ 
+  int * frame_arr = (int *)malloc(sizeof(int)*STEPS/numprocs);
+  for (int i = 0; i < STEPS/numprocs; i++){
+      frame_arr[i] = 2 * i +rank;
+  }
+
+  stl_raytracer_main(frame_arr, STEPS/numprocs, STEPS);
+
+    MPI_Finalize();
+
 }
