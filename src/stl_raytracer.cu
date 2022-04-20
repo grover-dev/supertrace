@@ -75,15 +75,15 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
 }
 
 // Update both or find a macro trick
-#define FILE_LIST {"sphere.stl"}//,"sphere.stl"}
+#define FILE_LIST {"chair.stl"}//,"sphere.stl"}
 #define NUMBER_OF_FILES 1
-struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
+struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,500)};//, Vec3(100,0,0)};
 #define DEBUG_MODE true
 
 #define H 500 // pixel height
 #define W 500 // pixel width
 #define BRIGHTNESS 0.5
-#define SCALING 8.0
+#define SCALING 2.5
 #define OFFSET 0.0
 #define ZOOM 1
 
@@ -114,7 +114,7 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
-  double light_source_z = 500.0;
+  double light_source_z = 1000.0;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
@@ -127,7 +127,7 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
   
   for (int z = 0; z < number_of_stls; z++) {
     pix_col = black;
-    Ray ray(Vec3(i/ZOOM,j/ZOOM,100), Vec3(0,0,1));
+    Ray ray(Vec3(i/ZOOM,j/ZOOM,400), Vec3(0,0,1));
     for (int ind = 0; ind < stl[z]->length; ind++){
       if(ray_triangle_intersect(&ray, &(tri_d[ind]), pi)){
           const Vec3 L = light.c - *pi;
@@ -209,8 +209,8 @@ int main()
     float object_angle =  M_PI/(float)STEPS;
   
     rotate_stl(ROT_Z, stl[0], -object_angle/2);
-    rotate_stl(ROT_X, stl[0], -object_angle*2);
-    rotate_stl(ROT_Y, stl[0], object_angle);
+    // rotate_stl(ROT_X, stl[0], -object_angle*2);
+    // rotate_stl(ROT_Y, stl[0], object_angle);
 
     code = cudaMalloc(&stl_d, stl_size);
     code = cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
