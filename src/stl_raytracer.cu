@@ -26,6 +26,7 @@ __device__ void clamp_pixels(Vec3& col)
 
 __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
   // error bound for 0
+  bool intersect = true;
   const float epsilon = 0.00000001;
 
   struct Vec3 c_a_vector = tri->v2 - tri->v0; //edge2
@@ -52,21 +53,21 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
   // since the vectors are normalized, anything < 0 or > 1 means that the intersection
   // is not in the bounds of the triangle 
   if (u < 0.0 || u > 1.0){
-    return false;
+    intersect = intersect * 0;
   }
   struct Vec3 o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector); // q = s cross edge1
   double v = dot_vec3(o_a_cross_b_a, ray->d) * inv_det;
   if (v < 0.0 || (v+u) > 1.0){
     // free(o_a_cross_b_a);
     // free(d_cross_c_a);
-    return false;
+    intersect = intersect * 0;
   }
   double t = dot_vec3(o_a_cross_b_a, c_a_vector) * inv_det;
   if (t > epsilon){
     *intersection_point = ray->o + (ray->d * t);
     // free(o_a_cross_b_a);
     // free(d_cross_c_a);
-    return true;
+    return intersect;
   }
   // free(o_a_cross_b_a);
   // free(d_cross_c_a);
@@ -74,7 +75,7 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
 }
 
 // Update both or find a macro trick
-#define FILE_LIST {"pyramid.stl"}//,"sphere.stl"}
+#define FILE_LIST {"sphere.stl"}//,"sphere.stl"}
 #define NUMBER_OF_FILES 1
 struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
 #define DEBUG_MODE true
@@ -91,17 +92,29 @@ struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
 // generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
 // and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
-__global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *output, float light_angle, float object_angle)
+__global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int number_of_stls, Vec3 *output, float light_angle, float object_angle)
 {
   int i = blockIdx.x ;
   int j = threadIdx.x ;
+  if (i == 0 && j == 0){
+    // for(int k= 0; k < stl[0]->length; k++){
+    //   printf("v0 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v0.x,
+    //     stl[0]->triangles[k].v0.y, stl[0]->triangles[k].v0.z);
+    //   printf("v1 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v1.x,
+    //     stl[0]->triangles[k].v1.y, stl[0]->triangles[k].v1.z);
+    //   printf("v2 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v2.x,
+    //     stl[0]->triangles[k].v2.y, stl[0]->triangles[k].v2.z);
+    // }
+        
+
+  }
   if((i >= W) || (j >= H)) return;
   int pixel_index = j + i* blockDim.x;
 
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
-  double light_source_z = 5000.0;
+  double light_source_z = 500.0;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
@@ -111,21 +124,12 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   struct Vec3 pix_col(black);
   struct Vec3 *pi;
   cudaMalloc(&pi, sizeof(Vec3));
-  // printf("stl point %lu\n", &stl[0]->triangles);
-  // struct Vec3 tmp = stl[0]->triangles[0].v0;
-  // printf("here_cuda, i: %i, j: %i\n",i,j);
-  // printf("here_Cuda i: %i, j: %i, threadid: %i, blockid: %i, blockdim: %i\n Vec3: x = %f, y = %f, z=%f \n",
-  //         i, j,threadIdx.x, blockIdx.x,blockDim.x , tmp.x,tmp.y,tmp.z);
-  // printf("here_Cuda pixel: %i, i: %i, j: %i,  threadid: %i, blockid: %i, blockdim: %i\n",
-  //         pixel_index, i, j, threadIdx.x, blockIdx.x,blockDim.x);
-
-
   
   for (int z = 0; z < number_of_stls; z++) {
     pix_col = black;
-    Ray ray(Vec3(i/ZOOM,j/ZOOM,-100), Vec3(0,0,1));
+    Ray ray(Vec3(i/ZOOM,j/ZOOM,100), Vec3(0,0,1));
     for (int ind = 0; ind < stl[z]->length; ind++){
-      if(ray_triangle_intersect(&ray, &(stl[z]->triangles[ind]), pi)){
+      if(ray_triangle_intersect(&ray, &(tri_d[ind]), pi)){
           const Vec3 L = light.c - *pi;
           const Vec3 N = stl[z]->triangles[ind].normal;
           const double dt = dot_vec3(L.normalize(), N.normalize());
@@ -185,36 +189,49 @@ int main()
 
   cudaError_t code;
 
-  uint32_t stl_size = NUMBER_OF_FILES * (stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
+  uint32_t stl_size = NUMBER_OF_FILES * (sizeof(struct STL)); //stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
   uint32_t output_size = H*W*sizeof(struct Vec3);
   Vec3 *output_values;
   code = cudaMallocHost(&output_values, output_size);
   struct STL **stl_d;
+  struct Triangle * tri_d;
+  uint32_t tri_size = sizeof(struct Triangle) * stl[0]->length;
+
   struct Vec3 *output_values_d;
   
+  size_t free, total;
+  cudaMemGetInfo(&free,&total);
+  printf("%d KB free of total %d KB\n",free/1024,total/1024);
   for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i+1);
     // copy values to the gpu kernel
 
     float object_angle =  M_PI/(float)STEPS;
   
-    rotate_stl(ROT_Z, stl[0], object_angle);
-    rotate_stl(ROT_X, stl[0], object_angle);
-    // rotate_stl(ROT_Y, stl[0], -object_angle);
+    rotate_stl(ROT_Z, stl[0], -object_angle/2);
+    rotate_stl(ROT_X, stl[0], -object_angle*2);
+    rotate_stl(ROT_Y, stl[0], object_angle);
 
     code = cudaMalloc(&stl_d, stl_size);
     code = cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
+
+    code = cudaMalloc(&tri_d, tri_size);
+    code = cudaMemcpy(tri_d, stl[0]->triangles, tri_size, cudaMemcpyHostToDevice);
+
+    // stl_d[0]->triangles = tri_d;
+
+
+
+
     code = cudaMalloc(&output_values_d, output_size);
     code = cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
 
-    raytrace<<<H, W>>>(stl_d, NUMBER_OF_FILES, output_values_d, i*M_PI/(float)STEPS, M_PI/(float)STEPS);
+    raytrace<<<H, W>>>(stl_d, tri_d, NUMBER_OF_FILES, output_values_d, i*M_PI/(float)STEPS, M_PI/(float)STEPS);
     //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
-
+    cudaDeviceSynchronize();
     // copy values back out
     code = cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyDeviceToHost);
-    code = cudaFree(output_values_d);
-    code = cudaFree(stl_d);
 
     // Save values locally
     output_filename.insert(10,appended_info);
@@ -235,6 +252,8 @@ int main()
       increment_point = current_time;
     }
   }
+  code = cudaFree(output_values_d);
+  code = cudaFree(stl_d);
   if (DEBUG_MODE) {
     finish_time = CLOCK();
     total_time = finish_time-start_time;

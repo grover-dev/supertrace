@@ -10,7 +10,7 @@
 
 
 struct Vec3 {
-  float x,y,z;
+  double x,y,z;
   __device__ __host__ Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
   __device__ __host__ Vec3(const Vec3& v): x(v.x), y(v.y), z(v.z) {}
   __device__ __host__ Vec3 operator + (const Vec3& v) const { return Vec3(x+v.x, y+v.y, z+v.z); }
@@ -25,7 +25,7 @@ struct Vec3 {
     double mg = sqrt(x*x + y*y + z*z);
     return Vec3(x/mg,y/mg,z/mg);
   }
-  void print() const {
+  __device__ __host__ void print() const {
     printf("x: %f, y: %f, z: %f\n",x,y,z);
   }
 };
