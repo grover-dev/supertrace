@@ -11,14 +11,13 @@ __device__ double dot_vec3(const Vec3& a, const Vec3& b)
   return (a.x*b.x + a.y*b.y + a.z*b.z);
 }
 
-__device__ struct Vec3 * cross_vec3(const Vec3& a, const Vec3& b)
+__device__ struct Vec3 cross_vec3(const Vec3& a, const Vec3& b)
 {
-  struct Vec3 * cross_product = (struct Vec3 *)malloc(sizeof(struct Vec3));
-  // cudaMalloc(&cross_product, sizeof(struct Vec3));
-  // = (struct Vec3 *)malloc(sizeof(struct Vec3));
-  cross_product->x = (a.y * b.z) - (b.y * a.z); 
-  cross_product->y = (a.z * b.x) - (b.z * a.x);
-  cross_product->z = (a.x * b.y) - (b.x * a.y);
+  // struct Vec3 * cross_product = (struct Vec3 *)malloc(sizeof(struct Vec3));
+  struct Vec3 cross_product = Vec3(0,0,0);
+  cross_product.x = (a.y * b.z) - (b.y * a.z);
+  cross_product.y = (a.z * b.x) - (b.z * a.x);
+  cross_product.z = (a.x * b.y) - (b.x * a.y);
   return cross_product;
 }
 
@@ -71,8 +70,9 @@ __device__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double
 }
 
 
-double magnitude_vec3(const Vec3*vec){
-  return (sqrt(vec->x* vec->x + vec->y * vec->y + vec->z * vec->z));
+__device__ __host__ double magnitude_vec3(const Vec3& vec){
+  
+  return sqrt(vec.x* vec.x + vec.y * vec.y + vec.z * vec.z);
 } 
 
 
@@ -129,11 +129,11 @@ struct Vec3 get_model_center(STL * stl){
   for (int i = 0; i < stl->length; i++){
     struct Vec3 edge_0 = stl->triangles[i].v1 - stl->triangles[i].v0;
     struct Vec3 edge_1 = stl->triangles[i].v2 - stl->triangles[i].v0;
-    struct Vec3 *cross_prod = cross_vec3(edge_0, edge_1);
+    struct Vec3 cross_prod = cross_vec3(edge_0, edge_1);
     double area = 0.5 * magnitude_vec3(cross_prod);
     total_weighted_area = total_weighted_area + (get_triangle_center(stl->triangles[i]) * area); 
     total_area+=area;
-    free(cross_prod);
+    // free(cross_prod);
   }
   return total_weighted_area/total_area;
 }

@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 
-double CLOCK() {
+__host__ double CLOCK() {
         struct timespec t;
         clock_gettime(CLOCK_MONOTONIC,  &t);
         return (t.tv_sec * 1000)+(t.tv_nsec*1e-6);
@@ -31,16 +31,16 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
   struct Vec3 c_a_vector = tri->v2 - tri->v0; //edge2
   struct Vec3 b_a_vector = tri->v1 - tri->v0; //edge1 
 
-  struct Vec3 *d_cross_c_a = cross_vec3(ray->d, c_a_vector); // h = ray cross edge2
+  struct Vec3 d_cross_c_a = cross_vec3(ray->d, c_a_vector); // h = ray cross edge2
 
   // first calculating determinant, 
   //  if its ~0 then the ray is parallel to the triangle
   //  if it is <0, then we are hitting the back of the triangle (counting as not intersecting for now)
   //  this will need to be adjusted in the future (especially with refraction) (i.e. use absolute value of det)
   // can therefore ignore it  
-  double det = dot_vec3(*d_cross_c_a, b_a_vector); // a = (ray cross edge2) => h dot edge1
+  double det = dot_vec3(d_cross_c_a, b_a_vector); // a = (ray cross edge2) => h dot edge1
   if (det < epsilon && det > -epsilon){
-    free(d_cross_c_a);
+    // free(d_cross_c_a);
     return false;
   }
   double inv_det = 1.0 / det; // f = 1/a
@@ -48,28 +48,28 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
   struct Vec3 o_a_vector = ray->o - tri->v0; // s = ray origin - vertex0
 
   // start calculating barycentric coord vectors
-  double u = dot_vec3(o_a_vector, *d_cross_c_a) * inv_det; // u = s dot h * f
+  double u = dot_vec3(o_a_vector, d_cross_c_a) * inv_det; // u = s dot h * f
   // since the vectors are normalized, anything < 0 or > 1 means that the intersection
   // is not in the bounds of the triangle 
   if (u < 0.0 || u > 1.0){
     return false;
   }
-  struct Vec3 * o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector); // q = s cross edge1
-  double v = dot_vec3(*o_a_cross_b_a, ray->d) * inv_det;
+  struct Vec3 o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector); // q = s cross edge1
+  double v = dot_vec3(o_a_cross_b_a, ray->d) * inv_det;
   if (v < 0.0 || (v+u) > 1.0){
-    free(o_a_cross_b_a);
-    free(d_cross_c_a);
+    // free(o_a_cross_b_a);
+    // free(d_cross_c_a);
     return false;
   }
-  double t = dot_vec3(*o_a_cross_b_a, c_a_vector) * inv_det;
+  double t = dot_vec3(o_a_cross_b_a, c_a_vector) * inv_det;
   if (t > epsilon){
     *intersection_point = ray->o + (ray->d * t);
-    free(o_a_cross_b_a);
-    free(d_cross_c_a);
+    // free(o_a_cross_b_a);
+    // free(d_cross_c_a);
     return true;
   }
-  free(o_a_cross_b_a);
-  free(d_cross_c_a);
+  // free(o_a_cross_b_a);
+  // free(d_cross_c_a);
   return false;
 }
 
@@ -93,10 +93,10 @@ struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
 // and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
 __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *output, float light_angle, float object_angle)
 {
-  int i = threadIdx.x + blockIdx.x * blockDim.x;
-  int j = threadIdx.y + blockIdx.y * blockDim.y;
+  int i = blockIdx.x ;
+  int j = threadIdx.x ;
   if((i >= W) || (j >= H)) return;
-  int pixel_index = j + i*W;
+  int pixel_index = j + i* blockDim.x;
 
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
@@ -116,11 +116,13 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   // printf("here_cuda, i: %i, j: %i\n",i,j);
   // printf("here_Cuda i: %i, j: %i, threadid: %i, blockid: %i, blockdim: %i\n Vec3: x = %f, y = %f, z=%f \n",
   //         i, j,threadIdx.x, blockIdx.x,blockDim.x , tmp.x,tmp.y,tmp.z);
+  // printf("here_Cuda pixel: %i, i: %i, j: %i,  threadid: %i, blockid: %i, blockdim: %i\n",
+  //         pixel_index, i, j, threadIdx.x, blockIdx.x,blockDim.x);
 
 
-  rotate_stl(ROT_Z, stl[0], object_angle);
-  rotate_stl(ROT_X, stl[0], object_angle);
-  rotate_stl(ROT_Y, stl[0], -object_angle);
+  // rotate_stl(ROT_Z, stl[0], object_angle);
+  // rotate_stl(ROT_X, stl[0], object_angle);
+  // rotate_stl(ROT_Y, stl[0], -object_angle);
   
   for (int z = 0; z < number_of_stls; z++) {
     pix_col = black;
@@ -134,9 +136,9 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
           clamp_pixels(pix_col); 
       }
     }
-    output[pixel_index] = red;
-    cudaFree(pi);
+    output[pixel_index] = pix_col;
   }
+  cudaFree(pi);
   //   // debugging highlighting origin with red square
   //   if (i <= 10 && j <= 10 ){
   //     pix_col = Vec3(MAX_PIXEL,0,0);
@@ -186,18 +188,19 @@ int main()
 
   cudaError_t code;
 
+  uint32_t stl_size = NUMBER_OF_FILES * (stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
+  uint32_t output_size = H*W*sizeof(struct Vec3);
+  Vec3 *output_values;
+  code = cudaMallocHost(&output_values, output_size);
+  struct STL **stl_d;
+  struct Vec3 *output_values_d;
+  
   for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i+1);
     // copy values to the gpu kernel
-    uint32_t stl_size = NUMBER_OF_FILES * (stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
-    uint32_t output_size = H*W*sizeof(struct Vec3);
-    Vec3 *output_values;
-    code = cudaMallocHost(&output_values, output_size);
 
-    struct STL **stl_d;
     code = cudaMalloc(&stl_d, stl_size);
     code = cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
-    struct Vec3 *output_values_d;
     code = cudaMalloc(&output_values_d, output_size);
     code = cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
