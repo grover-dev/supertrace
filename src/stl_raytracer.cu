@@ -117,7 +117,6 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   // printf("here_Cuda i: %i, j: %i, threadid: %i, blockid: %i, blockdim: %i\n Vec3: x = %f, y = %f, z=%f \n",
   //         i, j,threadIdx.x, blockIdx.x,blockDim.x , tmp.x,tmp.y,tmp.z);
 
-  printf("stl_len: %i\n", stl[0]->length);
 
   rotate_stl(ROT_Z, stl[0], object_angle);
   rotate_stl(ROT_X, stl[0], object_angle);
@@ -127,7 +126,6 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
     pix_col = black;
     Ray ray(Vec3(i/ZOOM,j/ZOOM,0), Vec3(0,0,1));
     for (int ind = 0; ind < stl[z]->length; ind++){
-      printf("cudahere\n");
       if(ray_triangle_intersect(&ray, &(stl[z]->triangles[ind]), pi)){
           const Vec3 L = light.c - *pi;
           const Vec3 N = stl[z]->triangles[ind].normal;
@@ -190,10 +188,8 @@ int main()
 
   for (int i = start; i < STEPS+start; i++){
     std::string appended_info = std::to_string(i+1);
-    printf("here\n");
     // copy values to the gpu kernel
     uint32_t stl_size = NUMBER_OF_FILES * (stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
-    printf("stl len: %i", stl_size);
     uint32_t output_size = H*W*sizeof(struct Vec3);
     Vec3 *output_values;
     code = cudaMallocHost(&output_values, output_size);
