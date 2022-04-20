@@ -26,7 +26,7 @@ __device__ void clamp_pixels(Vec3& col)
 
 __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
   // error bound for 0
-  const float epsilon = 0.000001;
+  const float epsilon = 0.00000001;
 
   struct Vec3 c_a_vector = tri->v2 - tri->v0; //edge2
   struct Vec3 b_a_vector = tri->v1 - tri->v0; //edge1 
@@ -82,11 +82,11 @@ struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
 #define H 500 // pixel height
 #define W 500 // pixel width
 #define BRIGHTNESS 0.5
-#define SCALING 5.0
+#define SCALING 8.0
 #define OFFSET 0.0
 #define ZOOM 1
 
-#define STEPS 100
+#define STEPS 20
 
 // generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
@@ -101,7 +101,7 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
-  double light_source_z = 500.0;
+  double light_source_z = 5000.0;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
@@ -123,7 +123,7 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   
   for (int z = 0; z < number_of_stls; z++) {
     pix_col = black;
-    Ray ray(Vec3(i/ZOOM,j/ZOOM,0), Vec3(0,0,1));
+    Ray ray(Vec3(i/ZOOM,j/ZOOM,-100), Vec3(0,0,1));
     for (int ind = 0; ind < stl[z]->length; ind++){
       if(ray_triangle_intersect(&ray, &(stl[z]->triangles[ind]), pi)){
           const Vec3 L = light.c - *pi;
