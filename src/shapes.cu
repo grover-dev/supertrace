@@ -6,7 +6,7 @@
 
 const uint8_t index_mapping[12] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2};
 
-__device__ double dot_vec3(const Vec3& a, const Vec3& b)
+__device__ __host__ double dot_vec3(const Vec3& a, const Vec3& b)
 {
   return (a.x*b.x + a.y*b.y + a.z*b.z);
 }
@@ -21,7 +21,7 @@ __device__ struct Vec3 cross_vec3(const Vec3& a, const Vec3& b)
   return cross_product;
 }
 
-__device__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad){
+__device__ __host__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad){
   Vec3 rotation_matrix [3] = {Vec3(0,0,0), Vec3(0,0,0), Vec3(0,0,0)};
   // printf("cos: %f, sin: %f\n", cos(theta_rad), sin(theta_rad));
   if (matrix == ROT_X){
@@ -47,20 +47,20 @@ __device__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, d
               dot_vec3(rotation_matrix[2], v));
 }
 
-__device__ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad){
+__device__ __host__ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad){
   tri.normal = rotate_vec3(matrix, tri.normal, theta_rad);
   tri.v0 = rotate_vec3(matrix, tri.v0, theta_rad);
   tri.v1 = rotate_vec3(matrix, tri.v1, theta_rad);
   tri.v2 = rotate_vec3(matrix, tri.v2, theta_rad);
 }
 
-__device__ void shift_triangle(Triangle &tri, struct Vec3 shift){
+__device__ __host__ void shift_triangle(Triangle &tri, struct Vec3 shift){
   tri.v0 = tri.v0 + shift;
   tri.v1 = tri.v1 + shift;
   tri.v2 = tri.v2 + shift;
 }
 
-__device__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad){
+__device__ __host__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad){
   for (int i = 0; i < stl->length; i++){
     
     shift_triangle(stl->triangles[i], stl->center * -1);

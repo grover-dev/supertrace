@@ -26,7 +26,7 @@ __device__ void clamp_pixels(Vec3& col)
 
 __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
   // error bound for 0
-  const float epsilon = 0.0000001;
+  const float epsilon = 0.000001;
 
   struct Vec3 c_a_vector = tri->v2 - tri->v0; //edge2
   struct Vec3 b_a_vector = tri->v1 - tri->v0; //edge1 
@@ -86,7 +86,7 @@ struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,100)};//, Vec3(100,0,0)};
 #define OFFSET 0.0
 #define ZOOM 1
 
-#define STEPS 10
+#define STEPS 100
 
 // generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
@@ -120,9 +120,6 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
   //         pixel_index, i, j, threadIdx.x, blockIdx.x,blockDim.x);
 
 
-  // rotate_stl(ROT_Z, stl[0], object_angle);
-  // rotate_stl(ROT_X, stl[0], object_angle);
-  // rotate_stl(ROT_Y, stl[0], -object_angle);
   
   for (int z = 0; z < number_of_stls; z++) {
     pix_col = black;
@@ -136,23 +133,23 @@ __global__ void raytrace(struct STL *stl[], const int number_of_stls, Vec3 *outp
           clamp_pixels(pix_col); 
       }
     }
+    // debugging highlighting origin with red square
+    if (i <= 10 && j <= 10 ){
+      pix_col = Vec3(MAX_PIXEL,0,0);
+    } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
+      pix_col = white;
+    }
+    // paint y axis green
+    if (j == 0){
+      pix_col = Vec3(0,MAX_PIXEL,0);
+    // paint x axis blue
+    } else if (i == 0){
+      pix_col = Vec3(0,0,MAX_PIXEL);
+    }
     output[pixel_index] = pix_col;
   }
   cudaFree(pi);
-  //   // debugging highlighting origin with red square
-  //   if (i <= 10 && j <= 10 ){
-  //     pix_col = Vec3(MAX_PIXEL,0,0);
-  //   } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
-  //     pix_col = white;
-  //   }
-  //   // paint y axis green
-  //   if (j == 0){
-  //     pix_col = Vec3(0,MAX_PIXEL,0);
-  //   // paint x axis blue
-  //   } else if (i == 0){
-  //     pix_col = Vec3(0,0,MAX_PIXEL);
-  //   }
-  // }
+    
   // for (int z = 0; z<number_of_stls; z++){
 
   //   // for (int i = 0; i < stl[z]->length; i++){
@@ -199,13 +196,19 @@ int main()
     std::string appended_info = std::to_string(i+1);
     // copy values to the gpu kernel
 
+    float object_angle =  M_PI/(float)STEPS;
+  
+    rotate_stl(ROT_Z, stl[0], object_angle);
+    rotate_stl(ROT_X, stl[0], object_angle);
+    // rotate_stl(ROT_Y, stl[0], -object_angle);
+
     code = cudaMalloc(&stl_d, stl_size);
     code = cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
     code = cudaMalloc(&output_values_d, output_size);
     code = cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
 
-    raytrace<<<H, W>>>(stl_d, NUMBER_OF_FILES, output_values_d, i*2*M_PI/(float)STEPS, M_PI/(float)STEPS);
+    raytrace<<<H, W>>>(stl_d, NUMBER_OF_FILES, output_values_d, i*M_PI/(float)STEPS, M_PI/(float)STEPS);
     //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
 
     // copy values back out

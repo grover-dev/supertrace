@@ -53,9 +53,9 @@ struct STL {
 };
 
 enum ROT_MATRIX_TYPE {ROT_X, ROT_Y, ROT_Z};
-__device__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad);
-__device__ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad);
-__device__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad);
+__device__ __host__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad);
+__device__ __host__ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad);
+__device__ __host__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad);
 
 struct STL* load_stl(const std::string& filename, struct Parameters params, struct Vec3 file_offsets);
 
