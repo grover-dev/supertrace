@@ -21,7 +21,7 @@
 }
 
 
-#define FILE_LIST {"chair.stl"}
+#define FILE_LIST {"pyramid.stl"}
 struct Vec3 file_offsets[1] = {Vec3(0,0,500)};
 #define DEBUG_MODE true
 
