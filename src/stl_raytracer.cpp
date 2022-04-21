@@ -9,7 +9,8 @@
 #include <cstring>
 #include <unistd.h>
 
-  #define MPI
+// to disable MPI, comment out #define MPI
+ #define MPI
  #ifdef MPI
    #include "mpi.h"
  #endif
@@ -27,14 +28,14 @@ struct Vec3 file_offsets[1] = {Vec3(0,0,500)};
 
 #define H 500 // pixel height
 #define W 500 // pixel width
-#define BRIGHTNESS 0.5
-#define SCALING 10
-#define OFFSET 0.0
+#define BRIGHTNESS 0.5 //pixel brightness (0.5 = 100%)
+#define SCALING 4.0 // object scaling
+#define OFFSET 0.0 // object offset 
 #define ZOOM 1
 
-#define NUM_THREADS 1
-static pthread_t threads[NUM_THREADS];
-static pthread_mutex_t total_mutex;
+#define STEPS 12 // total frames
+
+#define LIGHT_SOURCE_HEIGHT 1000
 
 float light_angle = 0.0; 
 
@@ -115,14 +116,9 @@ void print_frame(int *pixels, std::string filename)
 // and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
 void * raytrace(void)
 {
-  // intptr_t tmp = (intptr_t)args;
-  // // int i = (int)tmp;
-
-  // printf("index: %f\n", light_angle);
-  // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
-  double light_source_z = 1000.0;
+  double light_source_z = LIGHT_SOURCE_HEIGHT;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
@@ -135,15 +131,12 @@ void * raytrace(void)
   int j = 0;
   int z = 0;
 
-  // int rank;
-  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
   int *output_int = (int *) malloc(W*H*3*sizeof(int));
   for (int i = 0; i < W; i++){
     for( j = 0; j < H; j++){
       for ( z = 0; z < 1; z++) {
         pix_col = black;
-        Ray ray = Ray(Vec3(i/ZOOM,j/ZOOM,400),Vec3(0,0,1));
+        Ray ray = Ray(Vec3(i/ZOOM,j/ZOOM,0.4*LIGHT_SOURCE_HEIGHT),Vec3(0,0,1));
         for (int ind = 0; ind < stl[z]->length; ind++){
           if(ray_triangle_intersect(&ray, &(tris[ind]), pi)){
               const Vec3 L = light.c - *pi;
@@ -173,11 +166,12 @@ void * raytrace(void)
       }
     }
   }
-  //MPI_Send(output_int, H*W*3,  MPI_INT,0,0,MPI_COMM_WORLD);
-  //printf("frame finished\n");
+  
   #ifdef MPI
+    // return frame data to node 0
     MPI_Send(output_int, 3*W*H, MPI_INT, 0, 0, MPI_COMM_WORLD);
   #else 
+    // without mpi operation, just print directly to file
     std::string filename = "output/out.ppm";
     std::string appended_info = std::to_string(output_num+1);
     output_num++;
@@ -226,9 +220,13 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
       object_angle = frame_arr[i ] * M_PI/(float)total_steps; 
     }
     last_frame = frame_arr[i];
+
+    // functions that control object roation. 
+    // you can change the rotation axis (ROT_X, ROT_Y, ROT_Z) 
+    // and the relative object_angle 
     rotate_stl(ROT_Z, stl[0], -object_angle/2);
-    // rotate_stl(ROT_X, stl[0], -object_angle*2);
-    // rotate_stl(ROT_Y, stl[0], object_angle);
+    rotate_stl(ROT_X, stl[0], -object_angle*2);
+    rotate_stl(ROT_Y, stl[0], object_angle);
 
 
     light_angle = frame_arr[i]*M_PI/(float)total_steps;
@@ -237,11 +235,10 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
       raytrace();
     }
   }
-  // free(stl);
 }
 
-
-#define STEPS 12
+// main entry point
+// handles MPI logic, work distribution
 int main(int argc, char *argv[]){
     double start_time, finish_time, total_time;
     start_time = CLOCK();
