@@ -2,8 +2,10 @@
 
 ## Building
 Lines 78-90 of "stl_raytracer.cu" contains macros that can be edited to change the input file and camera parameters. Various STL files have been included in this repo.
-Run the startup script to configure your node: 
+Run the following sequence of commands to configure your node: 
 ```
+module load cuda/10.2
+module load openmpi
 ./build_script
 ```
 
