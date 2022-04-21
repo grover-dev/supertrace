@@ -10,7 +10,7 @@ SOURCES := $(wildcard $(SRC)/*.cpp)
 INCLUDES := $(wildcard $(SRC)/*.hpp)
 OBJECTS := $(patsubst $(SRC)/%.cu, $(OBJ)/%.o, $(SOURCES))
 
-CFLAGS = -g -fopenmp
+CFLAGS = -g -lpthread
 MPIFLAGS = -I/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi -I/usr/lib/x86_64-linux-gnu/openmpi/include -lpthread -L/usr/lib/x86_64-linux-gnu/openmpi/lib -lmpi
 
 
