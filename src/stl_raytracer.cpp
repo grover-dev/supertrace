@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include "shapes.hpp"
 #include <cstring>
+#include <unistd.h>
 
  double CLOCK() {
         struct timespec t;
@@ -21,7 +22,7 @@ struct Params {
   Params(int thread_index, float light_angle ): thread_index(thread_index), light_angle(light_angle){}
 };
 
-#define FILE_LIST {"sphere.stl"}
+#define FILE_LIST {"chair.stl"}
 struct Vec3 file_offsets[1] = {Vec3(0,0,500)};
 #define DEBUG_MODE true
 
@@ -94,7 +95,18 @@ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3
   return false;
 }
 
+void print_frame(int *pixels, std::string filename)
+{
+  std::ofstream out(output_filename);
+    out << "P3\n" << W << ' ' << H << ' ' << MAX_PIXEL<<"\n";
 
+    for (int j = 0; j < H*W; j++) {
+      out << (int) output_values[j*3] << ' '
+          << (int) output_values[j*3+1].y << ' '
+          << (int) output_values[j*3+2].z << '\n';
+    }
+    out.close();
+}
 
 // generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
@@ -122,8 +134,11 @@ void * raytrace(void * args)
   int j = 0;
   int z = 0;
 
-  struct Vec3 * output = (Vec3 *)malloc(W*sizeof(Vec3));
+  int rank;
+  MPI_Comm_rank(&rank);
 
+  struct Vec3 * output = (Vec3 *)malloc(W*sizeof(Vec3));
+  int *output_int = malloc(W*3*sizeof(int));
   for( j = 0; j < H; j++){
     for ( z = 0; z < 1; z++) {
       pix_col = black;
@@ -151,12 +166,14 @@ void * raytrace(void * args)
         pix_col = Vec3(0,0,MAX_PIXEL);
       }
       int pixel_index = j;
+      output_int[pixel_index*3] = pix_col.x;
+      output_int[pixel_index*3 + 1] = pix_col.y;
+      output_int[pixel_index*3 + 2] = pix_col.z;
       output[pixel_index] = pix_col;
     }
   }
-  while(pthread_mutex_trylock (&total_mutex) != 0){ }
-  memcpy(&output_values[i*W],output,H*sizeof(Vec3));
-  pthread_mutex_unlock(&total_mutex);
+  MPI_Send(&output_int, 3*width, MPI_INT, 0, 0, MPI_COMM_WORLD);
+  free(output_int);
   free(output);
   free(pi);
 }
@@ -209,17 +226,18 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 
 
 
-    for (int ind = 0; ind < NUM_THREADS; ind++) {
+    for (int ind = 0; ind < 1; ind++) {
       Params p = Params(ind, frame_arr[i]*M_PI/(float)total_steps);
-      if (pthread_create(&threads[i], NULL, raytrace, (void *)&p)){
-          printf("failed to create pthread %i\n", i);
-          exit(-1);
-      }
+      raytrace(&params);
+      //if (pthread_create(&threads[i], NULL, raytrace, (void *)&p)){
+      //    printf("failed to create pthread %i\n", i);
+      //    exit(-1);
+      //}
     }
     // thread joining 
-    for(int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(threads[i], NULL);
-    }
+    //for(int i = 0; i < NUM_THREADS; i++) {
+    //    pthread_join(threads[i], NULL);
+   // }
 
 
 
@@ -253,7 +271,7 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 }
 
 
-#define STEPS 100
+#define STEPS 10
 // #define MPI
 #ifdef MPI
   #include "mpi.h"
@@ -268,19 +286,26 @@ int main(int argc, char *argv[]){
     MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Get_processor_name(processor_name, &namelen);
-    int block_size = STEPS/numprocs;
+    int block_size = STEPS/(numprocs-1);
   #else
     int block_size = STEPS;
     int rank = 0;
   #endif
   int * frame_arr = (int *)malloc(sizeof(int)*block_size);
-  
-  for (int i = 0; i< block_size; i++){
-    frame_arr[i] = block_size * rank + i;
+  if (rank > 0) {
+    for (int i = 0; i< block_size; i++){
+      frame_arr[i] = block_size * (rank-1) + i;
+    }
+    stl_raytracer_main(frame_arr, block_size, STEPS);
+  } else {
+    int *output_int = malloc(3*W*H*sizeof(int));
+    for (int i =0; i < STEPS; i++) {
+      // The expression for rank is wrong
+      MPI_Recv(&output_int, 3*W*H, i % (numprocs-1) + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      print_frame(output_int);
+    }
   }
 
-
-  stl_raytracer_main(frame_arr, block_size, STEPS);
   #ifdef MPI
     MPI_Finalize();
   #endif
