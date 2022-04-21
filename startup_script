@@ -1,4 +1,0 @@
-#!/bin/bash
-module load cuda/10.2
-mkdir obj
-make

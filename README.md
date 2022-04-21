@@ -4,12 +4,7 @@
 Lines 78-90 of "stl_raytracer.cu" contains macros that can be edited to change the input file and camera parameters. Various STL files have been included in this repo.
 Run the startup script to configure your node: 
 ```
-./startup_script
-```
-
-For subsequent runs, use the following command to rebuild:
-```
-make clean && make
+./build_script
 ```
 
 ## Running
