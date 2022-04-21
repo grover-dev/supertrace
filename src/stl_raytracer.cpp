@@ -5,18 +5,18 @@
 #include <cmath>
 #include <time.h>
 #include <stdint.h>
-#include "shapes.cuh"
-// #include "stl_raytracer.h"
+#include "shapes.hpp"
+#include <cstring>
+#include <omp.h>
 
-
-__host__ double CLOCK() {
+ double CLOCK() {
         struct timespec t;
         clock_gettime(CLOCK_MONOTONIC,  &t);
         return (t.tv_sec * 1000)+(t.tv_nsec*1e-6);
 }
 
 #define MAX_PIXEL 1023
-__device__ void clamp_pixels(Vec3& col)
+void clamp_pixels(Vec3& col)
 {
   col.x = (col.x > MAX_PIXEL) ? MAX_PIXEL : (col.x < 0) ? 0 : col.x;
   col.y = (col.y > MAX_PIXEL) ? MAX_PIXEL : (col.y < 0) ? 0 : col.y;
@@ -25,7 +25,7 @@ __device__ void clamp_pixels(Vec3& col)
 
 
 
-__device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
+bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
   // error bound for 0
   bool intersect = true;
   const float epsilon = 0.00000001;
@@ -76,7 +76,7 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
 }
 
 // Update both or find a macro trick
-#define FILE_LIST {"chair.stl"}//,"sphere.stl"}
+#define FILE_LIST {"sphere.stl"}//,"sphere.stl"}
 #define NUMBER_OF_FILES 1
 struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,500)};//, Vec3(100,0,0)};
 #define DEBUG_MODE true
@@ -92,24 +92,8 @@ struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,500)};//, Vec3(100,0,0)};
 // generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
 // and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
-__global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int number_of_stls, Vec3 *output, float light_angle, float object_angle)
+void raytrace(struct STL *stl[], struct Triangle * tri_d, const int number_of_stls, Vec3 *output, float light_angle, float object_angle)
 {
-  int i = blockIdx.x ;
-  int j = threadIdx.x ;
-  if (i == 0 && j == 0){
-    // for(int k= 0; k < stl[0]->length; k++){
-    //   printf("v0 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v0.x,
-    //     stl[0]->triangles[k].v0.y, stl[0]->triangles[k].v0.z);
-    //   printf("v1 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v1.x,
-    //     stl[0]->triangles[k].v1.y, stl[0]->triangles[k].v1.z);
-    //   printf("v2 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v2.x,
-    //     stl[0]->triangles[k].v2.y, stl[0]->triangles[k].v2.z);
-    // }
-        
-
-  }
-  if((i >= W) || (j >= H)) return;
-  int pixel_index = j + i* blockDim.x;
 
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
@@ -123,36 +107,47 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
 
   struct Vec3 pix_col(black);
   struct Vec3 *pi;
-  cudaMalloc(&pi, sizeof(Vec3));
-  
-  for (int z = 0; z < number_of_stls; z++) {
-    pix_col = black;
-    Ray ray(Vec3(i/ZOOM,j/ZOOM,400), Vec3(0,0,1));
-    for (int ind = 0; ind < stl[z]->length; ind++){
-      if(ray_triangle_intersect(&ray, &(tri_d[ind]), pi)){
-          const Vec3 L = light.c - *pi;
-          const Vec3 N = stl[z]->triangles[ind].normal;
-          const double dt = abs(dot_vec3(L.normalize(), N.normalize()));
-          pix_col = (red + white*dt) * BRIGHTNESS;
-          clamp_pixels(pix_col);
+  pi = (Vec3 *) malloc(sizeof(Vec3));
+  int i = 0;
+  int j = 0;
+  int z = 0;
+  static struct Ray * ray;
+  #pragma omp threadprivate(ray) 
+    for(i = 0; i < W; i++){
+  #pragma omp parallel for shared(output,i) private(j,z)
+      for( j = 0; j < H; j++){
+        ray = new Ray(Vec3(i/ZOOM, j/ZOOM, 400), Vec3(0,0,1));
+        for ( z = 0; z < number_of_stls; z++) {
+          pix_col = black;
+          // ray = Ray(Vec3(i/ZOOM,j/ZOOM,400),Vec3(0,0,1));
+          for (int ind = 0; ind < stl[z]->length; ind++){
+            if(ray_triangle_intersect(ray, &(tri_d[ind]), pi)){
+                const Vec3 L = light.c - *pi;
+                const Vec3 N = stl[z]->triangles[ind].normal;
+                const double dt = abs(dot_vec3(L.normalize(), N.normalize()));
+                pix_col = (red + white*dt) * BRIGHTNESS;
+                clamp_pixels(pix_col);
+            }
+          }
+          // debugging highlighting origin with red square
+          if (i <= 10 && j <= 10 ){
+            pix_col = Vec3(MAX_PIXEL,0,0);
+          } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
+            pix_col = white;
+          }
+          // paint y axis green
+          if (j == 0){
+            pix_col = Vec3(0,MAX_PIXEL,0);
+          // paint x axis blue
+          } else if (i == 0){
+            pix_col = Vec3(0,0,MAX_PIXEL);
+          }
+          int pixel_index = i*W +j;
+          output[pixel_index] = pix_col;
+        }
       }
     }
-    // debugging highlighting origin with red square
-    if (i <= 10 && j <= 10 ){
-      pix_col = Vec3(MAX_PIXEL,0,0);
-    } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
-      pix_col = white;
-    }
-    // paint y axis green
-    if (j == 0){
-      pix_col = Vec3(0,MAX_PIXEL,0);
-    // paint x axis blue
-    } else if (i == 0){
-      pix_col = Vec3(0,0,MAX_PIXEL);
-    }
-    output[pixel_index] = pix_col;
-  }
-  cudaFree(pi);
+  free(pi);
     
   // for (int z = 0; z<number_of_stls; z++){
 
@@ -186,22 +181,17 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
   start_time = CLOCK();
   increment_point = start_time;
 
-  cudaError_t code;
 
   uint32_t stl_size = NUMBER_OF_FILES * (sizeof(struct STL)); //stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
   uint32_t output_size = H*W*sizeof(struct Vec3);
   Vec3 *output_values;
-  code = cudaMallocHost(&output_values, output_size);
+  output_values = (Vec3 *)malloc(output_size);
   struct STL **stl_d;
-  struct Triangle * tri_d;
   uint32_t tri_size = sizeof(struct Triangle) * stl[0]->length;
+  struct Triangle * tri_d = (struct Triangle *)malloc(tri_size);
 
-  struct Vec3 *output_values_d;
+  struct Vec3 *output_values_d = (Vec3 *)malloc(sizeof(Vec3)*H*W);
   
-  size_t free, total;
-  cudaMemGetInfo(&free,&total);
-  printf("%d KB free of total %d KB\n",free/1024,total/1024);
-
   int last_frame = 0;
   for (int i = 0; i < frame_arr_length; i++){
     std::string appended_info = std::to_string(i+1);
@@ -219,26 +209,19 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
     // rotate_stl(ROT_X, stl[0], -object_angle*2);
     // rotate_stl(ROT_Y, stl[0], object_angle);
 
-    code = cudaMalloc(&stl_d, stl_size);
-    code = cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
 
-    code = cudaMalloc(&tri_d, tri_size);
-    code = cudaMemcpy(tri_d, stl[0]->triangles, tri_size, cudaMemcpyHostToDevice);
+    memcpy(tri_d, stl[0]->triangles, tri_size);
 
     // stl_d[0]->triangles = tri_d;
 
 
 
 
-    code = cudaMalloc(&output_values_d, output_size);
-    code = cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
+    raytrace(stl, tri_d, NUMBER_OF_FILES, output_values_d, frame_arr[i]*M_PI/(float)total_steps, M_PI/(float)total_steps);
 
-    raytrace<<<H, W>>>(stl_d, tri_d, NUMBER_OF_FILES, output_values_d, frame_arr[i]*M_PI/(float)total_steps, M_PI/(float)total_steps);
-    //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
-    cudaDeviceSynchronize();
     // copy values back out
-    code = cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyDeviceToHost);
+    memcpy(output_values, output_values_d, output_size);
 
     // Save values locally
     output_filename.insert(10,appended_info);
@@ -259,8 +242,8 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
       increment_point = current_time;
     }
   }
-  code = cudaFree(output_values_d);
-  code = cudaFree(stl_d);
+  free(output_values_d);
+  // free(stl);
   if (DEBUG_MODE) {
     finish_time = CLOCK();
     total_time = finish_time-start_time;
@@ -269,26 +252,33 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 }
 
 #define STEPS 100
-
-#include "mpi.h"
+// #define MPI
+#ifdef MPI
+  #include "mpi.h"
+#endif
 int main(int argc, char *argv[]){
+  #ifdef MPI
+    int numprocs, rank, namelen;
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
 
-  int numprocs, rank, namelen;
-  char processor_name[MPI_MAX_PROCESSOR_NAME];
-
-  // mpi initialization 
-  MPI_Init(&argc, &argv);
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Get_processor_name(processor_name, &namelen);
- 
-  int * frame_arr = (int *)malloc(sizeof(int)*STEPS/numprocs);
-  for (int i = 0; i < STEPS/numprocs; i++){
-      frame_arr[i] = 2 * i +rank;
+    // mpi initialization 
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Get_processor_name(processor_name, &namelen);
+    int block_size = STEPS/numprocs;
+  #else
+    int block_size = STEPS;
+    int rank = 0;
+  #endif
+  int * frame_arr = (int *)malloc(sizeof(int)*block_size);
+  
+  for (int i = 0; i< block_size; i++){
+    frame_arr[i] = block_size * rank + i;
   }
 
-  stl_raytracer_main(frame_arr, STEPS/numprocs, STEPS);
-
+  stl_raytracer_main(frame_arr, block_size, STEPS);
+  #ifdef MPI
     MPI_Finalize();
-
+  #endif
 }

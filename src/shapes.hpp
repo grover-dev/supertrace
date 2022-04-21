@@ -1,5 +1,5 @@
-#ifndef SHAPES_CUH
-#define SHAPES_CUH
+#ifndef SHAPES_HPP
+#define SHAPES_HPP
 
 #include <cmath>
 #include <stdint.h>
@@ -11,29 +11,29 @@
 
 struct Vec3 {
   double x,y,z;
-  __device__ __host__ Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
-  __device__ __host__ Vec3(const Vec3& v): x(v.x), y(v.y), z(v.z) {}
-  __device__ __host__ Vec3 operator + (const Vec3& v) const { return Vec3(x+v.x, y+v.y, z+v.z); }
-  __device__ __host__ Vec3 operator - (const Vec3& v) const { return Vec3(x-v.x, y-v.y, z-v.z); }
-  __device__ __host__ Vec3 operator * (float d) const { return Vec3(x*d, y*d, z*d); }
-  __device__ __host__ Vec3 operator / (float d) const { return Vec3(x/d, y/d, z/d); }
-  __device__ __host__ Vec3 max(const Vec3& v)
+  Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
+  Vec3(const Vec3& v): x(v.x), y(v.y), z(v.z) {}
+  Vec3 operator + (const Vec3& v) const { return Vec3(x+v.x, y+v.y, z+v.z); }
+  Vec3 operator - (const Vec3& v) const { return Vec3(x-v.x, y-v.y, z-v.z); }
+  Vec3 operator * (float d) const { return Vec3(x*d, y*d, z*d); }
+  Vec3 operator / (float d) const { return Vec3(x/d, y/d, z/d); }
+  Vec3 max(const Vec3& v)
   { 
     return Vec3((x>v.x) ? x : v.x,(y>v.y) ? y : v.y,(z>v.z) ? z : v.z);
   }
-  __device__ __host__ Vec3 normalize() const {
+  Vec3 normalize() const {
     double mg = sqrt(x*x + y*y + z*z);
     return Vec3(x/mg,y/mg,z/mg);
   }
-  __device__ __host__ void print() const {
+  void print() const {
     printf("x: %f, y: %f, z: %f\n",x,y,z);
   }
 };
 
 
-__device__ __host__ double dot_vec3(const Vec3& a, const Vec3& b);
+double dot_vec3(const Vec3& a, const Vec3& b);
 
-__device__ __host__ struct Vec3 cross_vec3(const Vec3& a, const Vec3& b);
+struct Vec3 cross_vec3(const Vec3& a, const Vec3& b);
 
 
 struct Triangle {
@@ -53,9 +53,9 @@ struct STL {
 };
 
 enum ROT_MATRIX_TYPE {ROT_X, ROT_Y, ROT_Z};
- __host__ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad);
- __host__ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad);
- __host__ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad);
+ struct Vec3 rotate_vec3(enum ROT_MATRIX_TYPE matrix, const Vec3& v, double theta_rad);
+ void rotate_triangle(enum ROT_MATRIX_TYPE matrix, Triangle& tri, double theta_rad);
+ void rotate_stl(enum ROT_MATRIX_TYPE matrix, struct STL * stl, double theta_rad);
 
 struct STL* load_stl(const std::string& filename, struct Parameters params, struct Vec3 file_offsets);
 
@@ -72,17 +72,19 @@ struct Parameters {
 
 
 struct Ray {
-  Vec3 o,d;
-  __device__ __host__ Ray(const Vec3& o, const Vec3& d) : o(o), d(d) {}
+  Vec3 o;
+  Vec3 d;
+
+  Ray(const Vec3& o, const Vec3& d) : o(o), d(d) {}
 };
 
 
 struct Sphere {
   Vec3 c;
   double r;
-  __device__ __host__ Sphere(const Vec3& c, float r) : c(c), r(r) {}
-  __device__ __host__ Vec3 getNormal(const Vec3& pi) const { return (pi - c) / r; }
-  __device__ __host__ bool intersect(const Ray& ray, double &t) const {
+  Sphere(const Vec3& c, float r) : c(c), r(r) {}
+  Vec3 getNormal(const Vec3& pi) const { return (pi - c) / r; }
+  bool intersect(const Ray& ray, double &t) const {
     const Vec3 o = ray.o;
     const Vec3 d = ray.d;
     const Vec3 oc = o - c;
@@ -97,10 +99,6 @@ struct Sphere {
     return true;
   }
 };
-
-
-
-
 
 
 #endif
