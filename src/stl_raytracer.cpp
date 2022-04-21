@@ -21,14 +21,14 @@
 }
 
 
-#define FILE_LIST {"pyramid.stl"}
+#define FILE_LIST {"sphere.stl"}
 struct Vec3 file_offsets[1] = {Vec3(0,0,500)};
 #define DEBUG_MODE true
 
 #define H 500 // pixel height
 #define W 500 // pixel width
 #define BRIGHTNESS 0.5
-#define SCALING 2.5
+#define SCALING 10
 #define OFFSET 0.0
 #define ZOOM 1
 
@@ -172,9 +172,9 @@ void * raytrace(void)
       }
     }
   }
-  MPI_Send(&output_int, 1,  MPI_INT,0,0,MPI_COMM_WORLD);
-  printf("frame finished\n");
-  MPI_Send(&output_int, 3*W*H, MPI_INT, 0, 0, MPI_COMM_WORLD);
+  //MPI_Send(output_int, H*W*3,  MPI_INT,0,0,MPI_COMM_WORLD);
+  //printf("frame finished\n");
+  MPI_Send(output_int, 3*W*H, MPI_INT, 0, 0, MPI_COMM_WORLD);
   // free(output_int);
   free(pi);
 }
@@ -194,9 +194,6 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
     std::cout << "Successfully loaded " <<  filenames[i] << "%s\n";
     printf("Number of triangles: %i\n", stl[i]->length);
   }
-
-  start_time = CLOCK();
-  increment_point = start_time;
 
 
   uint32_t stl_size = (sizeof(struct STL)); 
@@ -228,49 +225,13 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 
     for (int ind = 0; ind < 1; ind++) {
       raytrace();
-      //if (pthread_create(&threads[i], NULL, raytrace, (void *)&p)){
-      //    printf("failed to create pthread %i\n", i);
-      //    exit(-1);
-      //}
-    }
-    // thread joining 
-    //for(int i = 0; i < NUM_THREADS; i++) {
-    //    pthread_join(threads[i], NULL);
-   // }
-
-
-
-
-
-    // Save values locally
-    //output_filename.insert(10,appended_info);
-    //std::ofstream out(output_filename);
-    //out << "P3\n" << W << ' ' << H << ' ' << MAX_PIXEL<<"\n";
-
-    //for (int j = 0; j < H*W; j++) {
-    //  out << (int) output_values[j].x << ' '
-    //      << (int) output_values[j].y << ' '
-    //      << (int) output_values[j].z << '\n';
-    //}
-    //out.close();
-    
-    //output_filename = "output/out.ppm";
-    if (DEBUG_MODE) {
-      current_time = CLOCK();
-      printf("Frame %d processed in %f ms\n", frame_arr[i], current_time-increment_point);
-      increment_point = current_time;
     }
   }
   // free(stl);
-  if (DEBUG_MODE) {
-    finish_time = CLOCK();
-    total_time = finish_time-start_time;
-    printf("The total time to raytrace was: %f ms\n", total_time);
-  }
 }
 
 
-#define STEPS 10
+#define STEPS 12
 int main(int argc, char *argv[]){
   #ifdef MPI
     int numprocs, rank, namelen;
@@ -281,6 +242,8 @@ int main(int argc, char *argv[]){
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Get_processor_name(processor_name, &namelen);
     int block_size = STEPS/(numprocs-1);
+    double start_time, finish_time, total_time;
+    start_time = CLOCK();
   #else
     int block_size = STEPS;
     int rank = 0;
@@ -296,18 +259,21 @@ int main(int argc, char *argv[]){
     std::string filename = "output/out.ppm";
     int *output_int = (int *) malloc(3*W*H*sizeof(int));
     for (int i =0; i < STEPS; i++) {
-      // The expression for rank is wrong
-      MPI_Recv(&output_int, 1, MPI_INT, 1,0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      printf("%i, numprocs: %i\n", i, numprocs);
-
-      MPI_Recv(&output_int, 3*W*H, MPI_INT, i % (numprocs-1) + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(output_int, 3*W*H, MPI_INT, i % (numprocs-1) + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       printf("Receivee from %d from node %d\n", i, i % (numprocs-1) + 1);
       std::string appended_info = std::to_string(i+1);
       filename.insert(10,appended_info);
       print_frame(output_int, filename);
       filename = "output/out.ppm";
     }
+    if (DEBUG_MODE) {
+      finish_time = CLOCK();
+      total_time = finish_time-start_time;
+      printf("The total time to raytrace was: %f ms\n", total_time);
+    }
   }
+
+  printf("Node %d finished\n",rank);
 
   #ifdef MPI
     MPI_Finalize();
