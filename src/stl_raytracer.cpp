@@ -9,7 +9,7 @@
 #include <cstring>
 #include <unistd.h>
 
-//  #define MPI
+  #define MPI
  #ifdef MPI
    #include "mpi.h"
  #endif
@@ -147,7 +147,7 @@ void * raytrace(void)
         for (int ind = 0; ind < stl[z]->length; ind++){
           if(ray_triangle_intersect(&ray, &(tris[ind]), pi)){
               const Vec3 L = light.c - *pi;
-              const Vec3 N = stl[z]->triangles[ind].normal;
+              const Vec3 N = tris[ind].normal;
               const double dt = abs(dot_vec3(L.normalize(), N.normalize()));
               pix_col = (red + white*dt) * BRIGHTNESS;
               clamp_pixels(pix_col);
@@ -185,7 +185,7 @@ void * raytrace(void)
     print_frame(output_int, filename);  
     printf("frame %i finished\n", output_num);
   #endif
-  //free(output_int);
+  free(output_int);
   free(pi);
 }
 
