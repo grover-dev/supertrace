@@ -7,13 +7,32 @@
 #include <stdint.h>
 #include "shapes.cuh"
 
+#define FILE_LIST {"pyramid.stl"}
+#define NUMBER_OF_FILES 1
+// vector below applies variable offset to model center
+struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,500)}; 
+#define DEBUG_MODE true
 
+#define H 500 // pixel height
+#define W 500 // pixel width
+#define BRIGHTNESS 0.5 //pixel brightness (0.5 = 100%)
+#define SCALING 4.0 // object scaling
+#define OFFSET 0.0 // object offset 
+#define ZOOM 1
+
+#define LIGHT_SOURCE_HEIGHT 1000
+
+#define STEPS 10
+// #define MPI
+
+// clock for timing functions
 __host__ double CLOCK() {
         struct timespec t;
         clock_gettime(CLOCK_MONOTONIC,  &t);
         return (t.tv_sec * 1000)+(t.tv_nsec*1e-6);
 }
 
+// pixel value clamping to be within defined ranges
 #define MAX_PIXEL 1023
 __device__ void clamp_pixels(Vec3& col)
 {
@@ -22,8 +41,7 @@ __device__ void clamp_pixels(Vec3& col)
   col.z = (col.z > MAX_PIXEL) ? MAX_PIXEL : (col.z < 0) ? 0 : col.z;
 }
 
-
-
+// used to calculate if ray intersects a given triangle
 __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, struct Vec3 * intersection_point){
   // error bound for 0
   bool intersect = true;
@@ -68,24 +86,11 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
   return false;
 }
 
-// Update both or find a macro trick
-#define FILE_LIST {"sofa.stl"}//,"sphere.stl"}
-#define NUMBER_OF_FILES 1
-struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,500)};//, Vec3(100,0,0)};
-#define DEBUG_MODE true
-
-#define H 500 // pixel height
-#define W 500 // pixel width
-#define BRIGHTNESS 0.5
-#define SCALING 2.5
-#define OFFSET 0.0
-#define ZOOM 1
-
 
 // generate a raytraced framed
-// requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
+// requires an array of stls, the number of stls, the output pointer, the light angle (angle of the light source, this is ABSOLUTE)
 // and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
-__global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int number_of_stls, Vec3 *output, float light_angle, float object_angle)
+__global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int number_of_stls, Vec3 *output, float light_angle)
 {
   int i = blockIdx.x ;
   int j = threadIdx.x ;
@@ -95,7 +100,7 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
   double light_source_y = H/2+H*sin(light_angle)/2;
-  double light_source_z = 1000.0;
+  double light_source_z = LIGHT_SOURCE_HEIGHT;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
   const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); 
@@ -108,12 +113,12 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
   
   for (int z = 0; z < number_of_stls; z++) {
     pix_col = black;
-    Ray ray(Vec3(i/ZOOM,j/ZOOM,400), Vec3(0,0,1));
+    Ray ray(Vec3(i/ZOOM,j/ZOOM,light_source_z/2), Vec3(0,0,1));
     for (int ind = 0; ind < stl[z]->length; ind++){
       if(ray_triangle_intersect(&ray, &(tri_d[ind]), pi)){
           const Vec3 L = light.c - *pi;
           const Vec3 N = stl[z]->triangles[ind].normal;
-          const double dt = abs(dot_vec3(L.normalize(), N.normalize()));
+          const double dt = fabs(dot_vec3(L.normalize(), N.normalize()));
           pix_col = (red + white*dt) * BRIGHTNESS;
           clamp_pixels(pix_col);
       }
@@ -175,8 +180,7 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 
   int last_frame = 0;
   for (int i = 0; i < frame_arr_length; i++){
-    std::string appended_info = std::to_string(i+1);
-    // copy values to the gpu kernel
+    std::string appended_info = std::to_string(frame_arr[i]);
     
 
     float object_angle;
@@ -186,10 +190,14 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
       object_angle = frame_arr[i ] * M_PI/(float)total_steps; 
     }
     last_frame = frame_arr[i];
-    rotate_stl(ROT_Z, stl[0], -object_angle/2);
-    // rotate_stl(ROT_X, stl[0], -object_angle*2);
-    // rotate_stl(ROT_Y, stl[0], object_angle);
 
+
+    // ADJUST THE ROTATION 
+    rotate_stl(ROT_Z, stl[0], object_angle);
+    rotate_stl(ROT_X, stl[0], object_angle);
+    rotate_stl(ROT_Y, stl[0], object_angle);
+
+    // copy values to the gpu kernel
     code = cudaMalloc(&stl_d, stl_size);
     code = cudaMemcpy(stl_d, stl, stl_size, cudaMemcpyHostToDevice);
 
@@ -197,12 +205,12 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
     code = cudaMemcpy(tri_d, stl[0]->triangles, tri_size, cudaMemcpyHostToDevice);
 
 
-
+    // allocate output array
     code = cudaMalloc(&output_values_d, output_size);
     code = cudaMemcpy(output_values_d, output_values, output_size, cudaMemcpyHostToDevice);
 
-
-    raytrace<<<H, W>>>(stl_d, tri_d, NUMBER_OF_FILES, output_values_d, frame_arr[i]*M_PI/(float)total_steps, M_PI/(float)total_steps);
+    // execute cuda raytracing
+    raytrace<<<H, W>>>(stl_d, tri_d, NUMBER_OF_FILES, output_values_d, frame_arr[i]*M_PI/(float)total_steps);
     
     cudaDeviceSynchronize();
     // copy values back out
@@ -236,8 +244,6 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
   }
 }
 
-#define STEPS 100
-// #define MPI
 #ifdef MPI
   #include "mpi.h"
 #endif
