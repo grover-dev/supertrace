@@ -9,7 +9,7 @@
 #include <cstring>
 #include <unistd.h>
 
- #define MPI
+//  #define MPI
  #ifdef MPI
    #include "mpi.h"
  #endif
@@ -42,6 +42,7 @@ struct Vec3 *output_values;
 const uint32_t output_size = H*W*sizeof(struct Vec3);
 struct STL *stl[1];
 struct Triangle * tris;
+int output_num = 0;
 
 #define MAX_PIXEL 1023
 void clamp_pixels(Vec3& col)
@@ -134,8 +135,8 @@ void * raytrace(void)
   int j = 0;
   int z = 0;
 
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  // int rank;
+  // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   int *output_int = (int *) malloc(W*H*3*sizeof(int));
   for (int i = 0; i < W; i++){
@@ -174,8 +175,17 @@ void * raytrace(void)
   }
   //MPI_Send(output_int, H*W*3,  MPI_INT,0,0,MPI_COMM_WORLD);
   //printf("frame finished\n");
-  MPI_Send(output_int, 3*W*H, MPI_INT, 0, 0, MPI_COMM_WORLD);
-  // free(output_int);
+  #ifdef MPI
+    MPI_Send(output_int, 3*W*H, MPI_INT, 0, 0, MPI_COMM_WORLD);
+  #else 
+    std::string filename = "output/out.ppm";
+    std::string appended_info = std::to_string(output_num+1);
+    output_num++;
+    filename.insert(10,appended_info);
+    print_frame(output_int, filename);  
+    printf("frame %i finished\n", output_num);
+  #endif
+  //free(output_int);
   free(pi);
 }
 
@@ -233,6 +243,8 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 
 #define STEPS 12
 int main(int argc, char *argv[]){
+    double start_time, finish_time, total_time;
+    start_time = CLOCK();
   #ifdef MPI
     int numprocs, rank, namelen;
     char processor_name[MPI_MAX_PROCESSOR_NAME];
@@ -242,11 +254,9 @@ int main(int argc, char *argv[]){
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Get_processor_name(processor_name, &namelen);
     int block_size = STEPS/(numprocs-1);
-    double start_time, finish_time, total_time;
-    start_time = CLOCK();
   #else
     int block_size = STEPS;
-    int rank = 0;
+    int rank = 1;
   #endif
   
   int * frame_arr = (int *)malloc(sizeof(int)*block_size);
@@ -256,16 +266,18 @@ int main(int argc, char *argv[]){
     }
     stl_raytracer_main(frame_arr, block_size, STEPS);
   } else {
-    std::string filename = "output/out.ppm";
-    int *output_int = (int *) malloc(3*W*H*sizeof(int));
-    for (int i =0; i < STEPS; i++) {
-      MPI_Recv(output_int, 3*W*H, MPI_INT, i % (numprocs-1) + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      printf("Receivee from %d from node %d\n", i, i % (numprocs-1) + 1);
-      std::string appended_info = std::to_string(i+1);
-      filename.insert(10,appended_info);
-      print_frame(output_int, filename);
-      filename = "output/out.ppm";
-    }
+    #ifdef MPI
+      std::string filename = "output/out.ppm";
+      int *output_int = (int *) malloc(3*W*H*sizeof(int));
+      for (int i =0; i < STEPS; i++) {
+        MPI_Recv(output_int, 3*W*H, MPI_INT, i % (numprocs-1) + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        printf("Receivee from %d from node %d\n", i, i % (numprocs-1) + 1);
+        std::string appended_info = std::to_string(i+1);
+        filename.insert(10,appended_info);
+        print_frame(output_int, filename);
+        filename = "output/out.ppm";
+      }
+    #endif
     if (DEBUG_MODE) {
       finish_time = CLOCK();
       total_time = finish_time-start_time;
