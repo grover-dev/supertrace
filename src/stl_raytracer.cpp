@@ -21,12 +21,6 @@
 }
 
 
-struct Params {
-  int thread_index;
-  float light_angle;
-  Params(int thread_index, float light_angle ): thread_index(thread_index), light_angle(light_angle){}
-};
-
 #define FILE_LIST {"chair.stl"}
 struct Vec3 file_offsets[1] = {Vec3(0,0,500)};
 #define DEBUG_MODE true
@@ -178,8 +172,10 @@ void * raytrace(void)
       }
     }
   }
+  MPI_Send(&output_int, 1,  MPI_INT,0,0,MPI_COMM_WORLD);
+  printf("frame finished\n");
   MPI_Send(&output_int, 3*W*H, MPI_INT, 0, 0, MPI_COMM_WORLD);
-  free(output_int);
+  // free(output_int);
   free(pi);
 }
 
@@ -299,8 +295,11 @@ int main(int argc, char *argv[]){
   } else {
     std::string filename = "output/out.ppm";
     int *output_int = (int *) malloc(3*W*H*sizeof(int));
-    for (int i =0; i < STEPS/(numprocs-1); i++) {
+    for (int i =0; i < STEPS; i++) {
       // The expression for rank is wrong
+      MPI_Recv(&output_int, 1, MPI_INT, 1,0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      printf("%i, numprocs: %i\n", i, numprocs);
+
       MPI_Recv(&output_int, 3*W*H, MPI_INT, i % (numprocs-1) + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       printf("Receivee from %d from node %d\n", i, i % (numprocs-1) + 1);
       std::string appended_info = std::to_string(i+1);
