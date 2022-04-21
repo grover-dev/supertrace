@@ -10,15 +10,15 @@ SOURCES := $(wildcard $(SRC)/*.cpp)
 INCLUDES := $(wildcard $(SRC)/*.hpp)
 OBJECTS := $(patsubst $(SRC)/%.cu, $(OBJ)/%.o, $(SOURCES))
 
-CFLAGS = -g -lpthread
-MPIFLAGS = -I/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi -I/usr/lib/x86_64-linux-gnu/openmpi/include -lpthread -L/usr/lib/x86_64-linux-gnu/openmpi/lib -lmpi
+CFLAGS = -g -lpthread -std=c++11
+MPIFLAGS = -I/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi -I/usr/lib/x86_64-linux-gnu/openmpi/include -lpthread -L/usr/lib/x86_64-linux-gnu/openmpi/lib -lmpi -lmpi_cxx
 
 
-$(OBJ)/%.o: $(SRC)/%.cu
-	$(CC) $(MPIFLAGS)  -c $< -o $@ $(CFLAGS) -dc
+$(OBJ)/%.o: $(SRC)/%.cpp
+	$(CC)   -c $< -o $@ $(CFLAGS)
 
 raytracer: $(OBJECTS) 
-	$(CC) $(MPIFLAGS) -o $@ $^  $(CFLAGS) -I$(INC)
+	$(CC)  -o $@ $^  $(CFLAGS) -I$(INC)
 
 # all:
 # 	mpiCC 
