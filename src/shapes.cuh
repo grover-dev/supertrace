@@ -41,9 +41,6 @@ struct Triangle {
   Vec3 normal;
   uint32_t * attributes;
   uint32_t attribute_length;
-  // Triangle(const Vec3& v0, const Vec3& v1, const Vec3& v2, 
-  //         const Vec3& normal, const uint32_t * attributes, const uint32_t attribute_length) :
-  //         v0(v0), v1(v1). v2(v2), normal(normal), attributes(attributes), attribute_length(attribute_length){}
 };
 
 struct STL {
@@ -97,10 +94,4 @@ struct Sphere {
     return true;
   }
 };
-
-
-
-
-
-
 #endif

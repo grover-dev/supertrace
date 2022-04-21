@@ -6,7 +6,6 @@
 #include <time.h>
 #include <stdint.h>
 #include "shapes.cuh"
-// #include "stl_raytracer.h"
 
 
 __host__ double CLOCK() {
@@ -33,14 +32,14 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
   struct Vec3 c_a_vector = tri->v2 - tri->v0; //edge2
   struct Vec3 b_a_vector = tri->v1 - tri->v0; //edge1 
 
-  struct Vec3 d_cross_c_a = cross_vec3(ray->d, c_a_vector); // h = ray cross edge2
+  struct Vec3 d_cross_c_a = cross_vec3(ray->d, c_a_vector); 
 
   // first calculating determinant, 
   //  if its ~0 then the ray is parallel to the triangle
   //  if it is <0, then we are hitting the back of the triangle (counting as not intersecting for now)
   //  this will need to be adjusted in the future (especially with refraction) (i.e. use absolute value of det)
   // can therefore ignore it  
-  double det = dot_vec3(d_cross_c_a, b_a_vector); // a = (ray cross edge2) => h dot edge1
+  double det = dot_vec3(d_cross_c_a, b_a_vector); 
   if (det < epsilon && det > -epsilon){
     // free(d_cross_c_a);
     return false;
@@ -50,33 +49,27 @@ __device__ bool ray_triangle_intersect(struct Ray * ray, struct Triangle * tri, 
   struct Vec3 o_a_vector = ray->o - tri->v0; // s = ray origin - vertex0
 
   // start calculating barycentric coord vectors
-  double u = dot_vec3(o_a_vector, d_cross_c_a) * inv_det; // u = s dot h * f
+  double u = dot_vec3(o_a_vector, d_cross_c_a) * inv_det; 
   // since the vectors are normalized, anything < 0 or > 1 means that the intersection
   // is not in the bounds of the triangle 
   if (u < 0.0 || u > 1.0){
     intersect = intersect * 0;
   }
-  struct Vec3 o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector); // q = s cross edge1
+  struct Vec3 o_a_cross_b_a = cross_vec3(o_a_vector, b_a_vector); 
   double v = dot_vec3(o_a_cross_b_a, ray->d) * inv_det;
   if (v < 0.0 || (v+u) > 1.0){
-    // free(o_a_cross_b_a);
-    // free(d_cross_c_a);
     intersect = intersect * 0;
   }
   double t = dot_vec3(o_a_cross_b_a, c_a_vector) * inv_det;
   if (t > epsilon){
     *intersection_point = ray->o + (ray->d * t);
-    // free(o_a_cross_b_a);
-    // free(d_cross_c_a);
     return intersect;
   }
-  // free(o_a_cross_b_a);
-  // free(d_cross_c_a);
   return false;
 }
 
 // Update both or find a macro trick
-#define FILE_LIST {"chair.stl"}//,"sphere.stl"}
+#define FILE_LIST {"sofa.stl"}//,"sphere.stl"}
 #define NUMBER_OF_FILES 1
 struct Vec3 file_offsets[NUMBER_OF_FILES] = {Vec3(0,0,500)};//, Vec3(100,0,0)};
 #define DEBUG_MODE true
@@ -96,18 +89,6 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
 {
   int i = blockIdx.x ;
   int j = threadIdx.x ;
-  if (i == 0 && j == 0){
-    // for(int k= 0; k < stl[0]->length; k++){
-    //   printf("v0 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v0.x,
-    //     stl[0]->triangles[k].v0.y, stl[0]->triangles[k].v0.z);
-    //   printf("v1 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v1.x,
-    //     stl[0]->triangles[k].v1.y, stl[0]->triangles[k].v1.z);
-    //   printf("v2 x: %f, y: %f, z: %f\n", stl[0]->triangles[k].v2.x,
-    //     stl[0]->triangles[k].v2.y, stl[0]->triangles[k].v2.z);
-    // }
-        
-
-  }
   if((i >= W) || (j >= H)) return;
   int pixel_index = j + i* blockDim.x;
 
@@ -117,7 +98,7 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
   double light_source_z = 1000.0;
   const Sphere light(Vec3(light_source_x,light_source_y,light_source_z ), 1);
 
-  const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); // the red will likely need to substituted with surface parameters
+  const struct Vec3 white(MAX_PIXEL, MAX_PIXEL, MAX_PIXEL); 
   const struct Vec3 black(0, 0, 0);
   const struct Vec3 red(MAX_PIXEL, 0, 0);
 
@@ -152,17 +133,7 @@ __global__ void raytrace(struct STL *stl[], struct Triangle * tri_d, const int n
     }
     output[pixel_index] = pix_col;
   }
-  cudaFree(pi);
-    
-  // for (int z = 0; z<number_of_stls; z++){
-
-  //   // for (int i = 0; i < stl[z]->length; i++){
-  //   //   struct Triangle * tri = &(stl[z]->triangles[i]); 
-  //   //   free(tri);
-  //   // }
-  //   free(stl[z]);
-  // }
-  
+  cudaFree(pi);  
 }
 
 
@@ -188,7 +159,7 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 
   cudaError_t code;
 
-  uint32_t stl_size = NUMBER_OF_FILES * (sizeof(struct STL)); //stl[0]->length * sizeof(struct Triangle) + sizeof(uint32_t) + sizeof(struct Vec3));
+  uint32_t stl_size = NUMBER_OF_FILES * (sizeof(struct STL));
   uint32_t output_size = H*W*sizeof(struct Vec3);
   Vec3 *output_values;
   code = cudaMallocHost(&output_values, output_size);
@@ -225,9 +196,6 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
     code = cudaMalloc(&tri_d, tri_size);
     code = cudaMemcpy(tri_d, stl[0]->triangles, tri_size, cudaMemcpyHostToDevice);
 
-    // stl_d[0]->triangles = tri_d;
-
-
 
 
     code = cudaMalloc(&output_values_d, output_size);
@@ -235,7 +203,7 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 
 
     raytrace<<<H, W>>>(stl_d, tri_d, NUMBER_OF_FILES, output_values_d, frame_arr[i]*M_PI/(float)total_steps, M_PI/(float)total_steps);
-    //raytrace(stl, NUMBER_OF_FILES, i*2*M_PI/(float)STEPS,M_PI/(float)STEPS);
+    
     cudaDeviceSynchronize();
     // copy values back out
     code = cudaMemcpy(output_values, output_values_d, output_size, cudaMemcpyDeviceToHost);
@@ -269,26 +237,33 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
 }
 
 #define STEPS 100
-
-#include "mpi.h"
+// #define MPI
+#ifdef MPI
+  #include "mpi.h"
+#endif
 int main(int argc, char *argv[]){
+  #ifdef MPI
+    int numprocs, rank, namelen;
+    char processor_name[MPI_MAX_PROCESSOR_NAME];
 
-  int numprocs, rank, namelen;
-  char processor_name[MPI_MAX_PROCESSOR_NAME];
-
-  // mpi initialization 
-  MPI_Init(&argc, &argv);
-  MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Get_processor_name(processor_name, &namelen);
- 
-  int * frame_arr = (int *)malloc(sizeof(int)*STEPS/numprocs);
-  for (int i = 0; i < STEPS/numprocs; i++){
-      frame_arr[i] = 2 * i +rank;
+    // mpi initialization 
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Get_processor_name(processor_name, &namelen);
+    int block_size = STEPS/numprocs;
+  #else
+    int block_size = STEPS;
+    int rank = 0;
+  #endif
+  int * frame_arr = (int *)malloc(sizeof(int)*block_size);
+  
+  for (int i = 0; i< block_size; i++){
+    frame_arr[i] = block_size * rank + i;
   }
 
-  stl_raytracer_main(frame_arr, STEPS/numprocs, STEPS);
-
+  stl_raytracer_main(frame_arr, block_size, STEPS);
+  #ifdef MPI
     MPI_Finalize();
-
+  #endif
 }
