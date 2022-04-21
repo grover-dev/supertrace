@@ -1,0 +1,10 @@
+#!/bin/bash
+#SBATCH --mem=100G
+#SBATCH --partition=express
+#SBATCH --nodes=2
+#SBATCH --time=00:25:00
+#SBATCH --job-name=cpu_run
+#SBATCH --ntasks-per-node=1
+#SBATCH --output=cpu_job.%j.out
+#SBATCH --error=cpu_job.%j.err
+$SRUN mpirun -mca btl_base_warn_component_unused 0 raytracer

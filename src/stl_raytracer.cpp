@@ -42,6 +42,8 @@ struct Vec3 file_offsets[1] = {Vec3(0,0,500)};
 static pthread_t threads[NUM_THREADS];
 static pthread_mutex_t total_mutex;
 
+float light_angle = 0.0; 
+
 struct Vec3 *output_values;
 const uint32_t output_size = H*W*sizeof(struct Vec3);
 struct STL *stl[1];
@@ -116,12 +118,11 @@ void print_frame(int *pixels, std::string filename)
 // generate a raytraced framed
 // requires an array of stls, the number of stls, the output file name, the light angle (angle of the light source, this is ABSOLUTE)
 // and the angle of the object (this is INCREMENTING, each frame generation with a given object angle MODIFIES THE STL)
-void * raytrace(void * args)
+void * raytrace(void)
 {
-  Params * p = (Params *)args;
+  // intptr_t tmp = (intptr_t)args;
+  // // int i = (int)tmp;
 
-  float light_angle = p->light_angle;
-  int i = p->thread_index;
   // printf("index: %f\n", light_angle);
   // creating light source point
   double light_source_x = W/2+W*cos(light_angle)/2;
@@ -142,44 +143,43 @@ void * raytrace(void * args)
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-  struct Vec3 * output = (Vec3 *)malloc(W*sizeof(Vec3));
   int *output_int = (int *) malloc(W*H*3*sizeof(int));
-  for( j = 0; j < H; j++){
-    for ( z = 0; z < 1; z++) {
-      pix_col = black;
-      Ray ray = Ray(Vec3(i/ZOOM,j/ZOOM,400),Vec3(0,0,1));
-      for (int ind = 0; ind < stl[z]->length; ind++){
-        if(ray_triangle_intersect(&ray, &(tris[ind]), pi)){
-            const Vec3 L = light.c - *pi;
-            const Vec3 N = stl[z]->triangles[ind].normal;
-            const double dt = abs(dot_vec3(L.normalize(), N.normalize()));
-            pix_col = (red + white*dt) * BRIGHTNESS;
-            clamp_pixels(pix_col);
+  for (int i = 0; i < W; i++){
+    for( j = 0; j < H; j++){
+      for ( z = 0; z < 1; z++) {
+        pix_col = black;
+        Ray ray = Ray(Vec3(i/ZOOM,j/ZOOM,400),Vec3(0,0,1));
+        for (int ind = 0; ind < stl[z]->length; ind++){
+          if(ray_triangle_intersect(&ray, &(tris[ind]), pi)){
+              const Vec3 L = light.c - *pi;
+              const Vec3 N = stl[z]->triangles[ind].normal;
+              const double dt = abs(dot_vec3(L.normalize(), N.normalize()));
+              pix_col = (red + white*dt) * BRIGHTNESS;
+              clamp_pixels(pix_col);
+          }
         }
+        // debugging highlighting origin with red square
+        if (i <= 10 && j <= 10 ){
+          pix_col = Vec3(MAX_PIXEL,0,0);
+        } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
+          pix_col = white;
+        }
+        // paint y axis green
+        if (j == 0){
+          pix_col = Vec3(0,MAX_PIXEL,0);
+        // paint x axis blue
+        } else if (i == 0){
+          pix_col = Vec3(0,0,MAX_PIXEL);
+        }
+        int pixel_index = i*W+j;
+        output_int[pixel_index*3] = pix_col.x;
+        output_int[pixel_index*3 + 1] = pix_col.y;
+        output_int[pixel_index*3 + 2] = pix_col.z;
       }
-      // debugging highlighting origin with red square
-      if (i <= 10 && j <= 10 ){
-        pix_col = Vec3(MAX_PIXEL,0,0);
-      } else if (fabs(i - light_source_x) <= 1 && fabs(j-light_source_y ) <= 1){
-        pix_col = white;
-      }
-      // paint y axis green
-      if (j == 0){
-        pix_col = Vec3(0,MAX_PIXEL,0);
-      // paint x axis blue
-      } else if (i == 0){
-        pix_col = Vec3(0,0,MAX_PIXEL);
-      }
-      int pixel_index = j;
-      output_int[pixel_index*3] = pix_col.x;
-      output_int[pixel_index*3 + 1] = pix_col.y;
-      output_int[pixel_index*3 + 2] = pix_col.z;
-      output[pixel_index] = pix_col;
     }
   }
   MPI_Send(&output_int, 3*W*H, MPI_INT, 0, 0, MPI_COMM_WORLD);
   free(output_int);
-  free(output);
   free(pi);
 }
 
@@ -228,11 +228,10 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
     // rotate_stl(ROT_Y, stl[0], object_angle);
 
 
-
+    light_angle = frame_arr[i]*M_PI/(float)total_steps;
 
     for (int ind = 0; ind < 1; ind++) {
-      Params p = Params(ind, frame_arr[i]*M_PI/(float)total_steps);
-      raytrace(&params);
+      raytrace();
       //if (pthread_create(&threads[i], NULL, raytrace, (void *)&p)){
       //    printf("failed to create pthread %i\n", i);
       //    exit(-1);
