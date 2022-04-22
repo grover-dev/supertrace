@@ -217,7 +217,7 @@ void stl_raytracer_main(int frame_arr [], int frame_arr_length, int total_steps)
     if (i > 0){
       object_angle =  (frame_arr[i] - last_frame) * M_PI/(float)total_steps;
     } else {
-      object_angle = frame_arr[i ] * M_PI/(float)total_steps; 
+      object_angle = frame_arr[i] * M_PI/(float)total_steps; 
     }
     last_frame = frame_arr[i];
 

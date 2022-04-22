@@ -6,6 +6,7 @@ Run the startup script to configure your node:
 ```
 ./build_script
 ```
+If the build script does not work, try manually loading openmpi (module add openmpi).
 To change the number of active nodes, edit the number of nodes in the run_on_mpi_cpu script. This value needs to be greater than or equal to 2 (1 node reserved for receiving+saving the data, the others for  rendering)
 ## Running
 Run the following command

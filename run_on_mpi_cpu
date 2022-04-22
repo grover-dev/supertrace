@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --mem=100G
 #SBATCH --partition=express
-#SBATCH --nodes=2
+#SBATCH --nodes=5
 #SBATCH --time=00:25:00
 #SBATCH --job-name=cpu_run
 #SBATCH --ntasks-per-node=1
